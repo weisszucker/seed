@@ -38,13 +38,13 @@ export function SavePrompt({ isOpen, fileName, onSave, onDiscard, onCancel }: Sa
       {/* Buttons */}
       <box flexDirection="row" padding={1} gap={2} justifyContent="center">
         <box border padding={1} onMouseDown={onSave}>
-          <text fg="#b5bd68">💾 Save</text>
+          <text fg="#b5bd68">Save</text>
         </box>
         <box border padding={1} onMouseDown={onDiscard}>
-          <text fg="#cc6666">🗑️  Don't Save</text>
+          <text fg="#cc6666">Don't Save</text>
         </box>
         <box border padding={1} onMouseDown={onCancel}>
-          <text fg="#5f819d">✕ Cancel</text>
+          <text fg="#5f819d">Cancel</text>
         </box>
       </box>
     </box>

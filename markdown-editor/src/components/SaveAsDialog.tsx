@@ -67,7 +67,7 @@ export function SaveAsDialog({ isOpen, currentDir, onClose, onSave, defaultName 
             }
           }}
         >
-          <text fg="#b5bd68">💾 Save</text>
+          <text fg="#b5bd68">Save</text>
         </box>
         <box border padding={1} onMouseDown={onClose}>
           <text fg="#cc6666">Cancel</text>

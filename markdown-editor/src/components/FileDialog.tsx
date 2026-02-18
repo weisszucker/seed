@@ -91,7 +91,7 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
                 >
                   <text>
                     {index === selectedIndex ? "> " : "  "}
-                    <span fg="#b5bd68">📄</span> {file.name}
+                    {file.name}
                   </text>
                 </box>
               ))

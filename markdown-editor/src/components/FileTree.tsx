@@ -43,7 +43,6 @@ export function FileTree({
               {indent}
               <span fg="#f0c674">{isExpanded ? "▼" : "▶"}</span>
               <span> </span>
-              <span fg="#5f819d">📁</span>
               <span> {node.name}</span>
             </text>
           </box>
@@ -69,7 +68,6 @@ export function FileTree({
         <text>
           {indent}
           <span>  </span>
-          <span fg={isMarkdown ? "#81a2be" : "#b5bd68"}>📄</span>
           <span> {node.name}</span>
         </text>
       </box>
@@ -80,7 +78,7 @@ export function FileTree({
     <scrollbox flexDirection="column" height="100%">
       <box flexDirection="column" padding={1}>
         <text>
-          <strong fg="#f0c674">📂 {tree.name}</strong>
+          <strong fg="#f0c674">{tree.name}</strong>
         </text>
         <box height={1} />
         {tree.children?.map((child) => renderNode(child, 0))}
