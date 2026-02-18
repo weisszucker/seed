@@ -1,3 +1,8 @@
+import { useTheme } from "../theme-context.js";
+import { ActionRow } from "./ui/ActionRow.js";
+import { ChoiceButton } from "./ui/ChoiceButton.js";
+import { ModalShell } from "./ui/ModalShell.js";
+
 interface QuitPromptProps {
   isOpen: boolean;
   onConfirm: () => void;
@@ -5,37 +10,26 @@ interface QuitPromptProps {
 }
 
 export function QuitPrompt({ isOpen, onConfirm, onCancel }: QuitPromptProps) {
-  if (!isOpen) return null;
+  const { theme } = useTheme();
 
   return (
-    <box
-      position="absolute"
-      top="35%"
-      left="25%"
-      width="50%"
-      height={11}
-      border
-      backgroundColor="#1a1a2e"
-      flexDirection="column"
-    >
+    <ModalShell isOpen={isOpen} height={theme.modal.quitHeight}>
       <box flexDirection="row" padding={1}>
         <text>
-          <strong fg="#f0c674">Quit</strong>
+          <strong fg={theme.colors.warning}>Quit</strong>
         </text>
       </box>
       <box flexGrow={1} flexDirection="column" padding={1} justifyContent="center">
-        <text fg="#c5c8c6">Are you sure you want to quit?</text>
+        <text fg={theme.colors.textPrimary}>Are you sure you want to quit?</text>
       </box>
-      <box padding={1}>
-        <box flexDirection="row"  padding={1} gap={1} justifyContent="center">
-          <box width={10} backgroundColor="#383850" padding={1} alignItems="center" onMouseDown={onConfirm}>
-            <text fg="#b5bd68">Yes</text>
-          </box>
-          <box width={10} backgroundColor="#383850" padding={1} alignItems="center" onMouseDown={onCancel}>
-            <text fg="#5f819d">No</text>
-          </box>
-        </box>
-      </box>
-    </box>
+      <ActionRow>
+        <ChoiceButton onPress={onConfirm}>
+          <text fg={theme.colors.success}>Yes</text>
+        </ChoiceButton>
+        <ChoiceButton onPress={onCancel}>
+          <text fg={theme.colors.info}>No</text>
+        </ChoiceButton>
+      </ActionRow>
+    </ModalShell>
   );
 }

@@ -52,6 +52,7 @@ npm start
 | `Ctrl+N` | New file |
 | `Ctrl+Q` | Quit editor |
 | `Ctrl+R` | Refresh file tree |
+| `Ctrl+T` | Reload theme tokens |
 | `Tab` | Toggle focus (sidebar ↔ editor) |
 | `Escape` | Focus editor |
 

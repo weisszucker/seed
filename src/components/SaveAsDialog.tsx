@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTheme } from "../theme-context.js";
 
 interface SaveAsDialogProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface SaveAsDialogProps {
 }
 
 export function SaveAsDialog({ isOpen, currentDir, onClose, onSave, defaultName }: SaveAsDialogProps) {
+  const { theme } = useTheme();
   const [typedPath, setTypedPath] = useState("");
 
   useEffect(() => {
@@ -29,19 +31,19 @@ export function SaveAsDialog({ isOpen, currentDir, onClose, onSave, defaultName 
       width="50%"
       height="30%"
       border
-      backgroundColor="#1a1a2e"
+      backgroundColor={theme.colors.panelBackground}
       flexDirection="column"
     >
       {/* Header */}
-      <box flexDirection="row" backgroundColor="#2a2a3e" padding={1}>
+      <box flexDirection="row" backgroundColor={theme.colors.surface} padding={1}>
         <text>
-          <strong fg="#f0c674">Save File As</strong>
+          <strong fg={theme.colors.warning}>Save File As</strong>
         </text>
       </box>
 
       {/* Content */}
       <box flexGrow={1} flexDirection="column" padding={1} gap={1}>
-        <text fg="#c5c8c6">Enter file name:</text>
+        <text fg={theme.colors.textPrimary}>Enter file name:</text>
         <input
           value={typedPath}
           onChange={setTypedPath}
@@ -50,7 +52,7 @@ export function SaveAsDialog({ isOpen, currentDir, onClose, onSave, defaultName 
           width="100%"
         />
         {typedPath && (
-          <text fg="#666">
+          <text fg={theme.colors.textMuted}>
             Path: {fullPath}
           </text>
         )}
@@ -67,10 +69,10 @@ export function SaveAsDialog({ isOpen, currentDir, onClose, onSave, defaultName 
             }
           }}
         >
-          <text fg="#b5bd68">Save</text>
+          <text fg={theme.colors.success}>Save</text>
         </box>
         <box border padding={1} onMouseDown={onClose}>
-          <text fg="#cc6666">Cancel</text>
+          <text fg={theme.colors.danger}>Cancel</text>
         </box>
       </box>
     </box>

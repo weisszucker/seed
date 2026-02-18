@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTheme } from "../theme-context.js";
 
 interface FileDialogProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface FileDialogProps {
 }
 
 export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: FileDialogProps) {
+  const { theme } = useTheme();
   const [mode, setMode] = useState<"type" | "browse">("type");
   const [typedPath, setTypedPath] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -33,13 +35,13 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
       width="60%"
       height="40%"
       border
-      backgroundColor="#1a1a2e"
+      backgroundColor={theme.colors.panelBackground}
       flexDirection="column"
     >
       {/* Header */}
-      <box flexDirection="row" backgroundColor="#2a2a3e" padding={1}>
+      <box flexDirection="row" backgroundColor={theme.colors.surface} padding={1}>
         <text>
-          <strong fg="#f0c674">Open File</strong>
+          <strong fg={theme.colors.warning}>Open File</strong>
         </text>
       </box>
 
@@ -50,14 +52,14 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
           padding={1}
           onMouseDown={() => setMode("type")}
         >
-          <text fg={mode === "type" ? "#81a2be" : "#666"}>Type Path</text>
+          <text fg={mode === "type" ? theme.colors.info : theme.colors.textMuted}>Type Path</text>
         </box>
         <box
           border={mode === "browse"}
           padding={1}
           onMouseDown={() => setMode("browse")}
         >
-          <text fg={mode === "browse" ? "#81a2be" : "#666"}>Browse</text>
+          <text fg={mode === "browse" ? theme.colors.info : theme.colors.textMuted}>Browse</text>
         </box>
       </box>
 
@@ -65,7 +67,7 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
       <box flexGrow={1} flexDirection="column" padding={1}>
         {mode === "type" ? (
           <box flexDirection="column" gap={1}>
-            <text fg="#c5c8c6">Enter file path:</text>
+            <text fg={theme.colors.textPrimary}>Enter file path:</text>
             <input
               value={typedPath}
               onChange={setTypedPath}
@@ -77,13 +79,13 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
         ) : (
           <scrollbox flexDirection="column" height="100%">
             {filteredFiles.length === 0 ? (
-              <text fg="#666">No files found</text>
+              <text fg={theme.colors.textMuted}>No files found</text>
             ) : (
               filteredFiles.map((file, index) => (
                 <box
                   key={file.path}
                   flexDirection="row"
-                  backgroundColor={index === selectedIndex ? "#2a2a3e" : undefined}
+                  backgroundColor={index === selectedIndex ? theme.colors.surface : undefined}
                   onMouseDown={() => {
                     setSelectedIndex(index);
                     onOpen(file.path);
@@ -113,10 +115,10 @@ export function FileDialog({ isOpen, currentDir, onClose, onOpen, fileTree }: Fi
             }
           }}
         >
-          <text fg="#b5bd68">Open</text>
+          <text fg={theme.colors.success}>Open</text>
         </box>
         <box border padding={1} onMouseDown={onClose}>
-          <text fg="#cc6666">Cancel</text>
+          <text fg={theme.colors.danger}>Cancel</text>
         </box>
       </box>
     </box>

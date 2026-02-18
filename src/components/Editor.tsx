@@ -1,6 +1,7 @@
 // @ts-nocheck - OpenTUI textarea types are not fully compatible
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import { useKeyboard, useRenderer } from "@opentui/react";
+import { useTheme } from "../theme-context.js";
 
 interface EditorProps {
   content: string;
@@ -28,6 +29,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
 ) {
   const textareaRef = useRef<any>(null);
   const renderer = useRenderer();
+  const { theme } = useTheme();
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
 
@@ -127,18 +129,18 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
       flexDirection="column"
       width="100%"
       height="100%"
-      backgroundColor="#1a1a2e"
+      backgroundColor={theme.colors.panelBackground}
       onMouseDown={onFocus}
     >
       {/* Header */}
-      <box flexDirection="row" padding={1} backgroundColor="#1a1a2e">
+      <box flexDirection="row" padding={1} backgroundColor={theme.colors.panelBackground}>
         <text>
-          <span fg="#81a2be">{displayName}</span>
+          <span fg={theme.colors.info}>{displayName}</span>
         </text>
       </box>
 
       {/* Editor */}
-      <box flexGrow={1} flexDirection="column" padding={1} minHeight={0} backgroundColor="#1a1a2e">
+      <box flexGrow={1} flexDirection="column" padding={1} minHeight={0} backgroundColor={theme.colors.panelBackground}>
         <textarea
           key={filePath || "untitled"}
           ref={textareaRef}
@@ -149,10 +151,10 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
           wrapText={false}
           tabSize={2}
           focused={focused}
-          backgroundColor="#1a1a2e"
-          textColor="#c5c8c6"
-          cursorColor="#81a2be"
-          focusedBackgroundColor="#1a1a2e"
+          backgroundColor={theme.colors.panelBackground}
+          textColor={theme.colors.textPrimary}
+          cursorColor={theme.colors.info}
+          focusedBackgroundColor={theme.colors.panelBackground}
           placeholder="Start typing..."
         />
       </box>
