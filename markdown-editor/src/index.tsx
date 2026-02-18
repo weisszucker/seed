@@ -4,7 +4,9 @@ import { App } from "./components/App.js";
 
 async function main() {
   try {
-    const renderer = await createCliRenderer();
+    const renderer = await createCliRenderer({
+      exitOnCtrlC: false,
+    });
 
     // Get current working directory
     const initialDir = process.cwd();
