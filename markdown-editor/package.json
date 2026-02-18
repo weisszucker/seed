@@ -1,0 +1,23 @@
+{
+  "name": "markdown-editor",
+  "version": "1.0.0",
+  "description": "A markdown text editor with file tree sidebar",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.tsx",
+    "dev": "bun run --watch src/index.tsx",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": "^19.0.0",
+    "react-devtools-core": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.5"
+  }
+}
