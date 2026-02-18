@@ -16,7 +16,7 @@ A terminal-based markdown editor built with OpenTUI and React. Features a dual-p
 
 ```bash
 # Clone or copy the project
-cd markdown-editor
+cd /home/panzh/seed
 
 # Install dependencies (requires Bun)
 bun install
@@ -93,7 +93,7 @@ The editor uses a dark color scheme:
 ## Architecture
 
 ```
-markdown-editor/
+seed/
 ├── src/
 │   ├── components/
 │   │   ├── App.tsx           # Main application layout
@@ -101,7 +101,8 @@ markdown-editor/
 │   │   ├── FileTree.tsx      # File tree sidebar
 │   │   ├── StatusBar.tsx     # Bottom status bar
 │   │   ├── FileDialog.tsx    # Open file dialog
-│   │   └── SavePrompt.tsx    # Save confirmation modal
+│   │   ├── SavePrompt.tsx    # Save confirmation modal
+│   │   └── SaveAsDialog.tsx  # Save-as modal
 │   ├── hooks/
 │   │   ├── useFileSystem.ts  # File I/O operations
 │   │   └── useKeyboardShortcuts.ts  # Keyboard handling
