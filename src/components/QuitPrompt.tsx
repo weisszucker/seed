@@ -10,15 +10,15 @@ export function QuitPrompt({ isOpen, onConfirm, onCancel }: QuitPromptProps) {
   return (
     <box
       position="absolute"
-      top="40%"
-      left="35%"
-      width="30%"
-      height="18%"
+      top="35%"
+      left="25%"
+      width="50%"
+      height={11}
       border
       backgroundColor="#1a1a2e"
       flexDirection="column"
     >
-      <box flexDirection="row" backgroundColor="#2a2a3e" padding={1}>
+      <box flexDirection="row" padding={1}>
         <text>
           <strong fg="#f0c674">Quit</strong>
         </text>
@@ -26,12 +26,14 @@ export function QuitPrompt({ isOpen, onConfirm, onCancel }: QuitPromptProps) {
       <box flexGrow={1} flexDirection="column" padding={1} justifyContent="center">
         <text fg="#c5c8c6">Are you sure you want to quit?</text>
       </box>
-      <box flexDirection="row" padding={1} gap={2} justifyContent="center">
-        <box border padding={1} onMouseDown={onConfirm}>
-          <text fg="#b5bd68">Yes</text>
-        </box>
-        <box border padding={1} onMouseDown={onCancel}>
-          <text fg="#5f819d">No</text>
+      <box padding={1}>
+        <box flexDirection="row"  padding={1} gap={1} justifyContent="center">
+          <box width={10} backgroundColor="#383850" padding={1} alignItems="center" onMouseDown={onConfirm}>
+            <text fg="#b5bd68">Yes</text>
+          </box>
+          <box width={10} backgroundColor="#383850" padding={1} alignItems="center" onMouseDown={onCancel}>
+            <text fg="#5f819d">No</text>
+          </box>
         </box>
       </box>
     </box>

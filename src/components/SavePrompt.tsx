@@ -12,16 +12,16 @@ export function SavePrompt({ isOpen, fileName, onSave, onDiscard, onCancel }: Sa
   return (
     <box
       position="absolute"
-      top="40%"
-      left="30%"
-      width="40%"
-      height="20%"
+      top="35%"
+      left="25%"
+      width="50%"
+      height={10}
       border
       backgroundColor="#1a1a2e"
       flexDirection="column"
     >
       {/* Header */}
-      <box flexDirection="row" backgroundColor="#2a2a3e" padding={1}>
+      <box flexDirection="row" padding={1}>
         <text>
           <strong fg="#f0c674">Save Changes?</strong>
         </text>
@@ -35,16 +35,27 @@ export function SavePrompt({ isOpen, fileName, onSave, onDiscard, onCancel }: Sa
         <text fg="#c5c8c6">Do you want to save them?</text>
       </box>
 
-      {/* Buttons */}
-      <box flexDirection="row" padding={1} gap={2} justifyContent="center">
-        <box border padding={1} onMouseDown={onSave}>
-          <text fg="#b5bd68">Save</text>
-        </box>
-        <box border padding={1} onMouseDown={onDiscard}>
-          <text fg="#cc6666">Don't Save</text>
-        </box>
-        <box border padding={1} onMouseDown={onCancel}>
-          <text fg="#5f819d">Cancel</text>
+      {/* Actions */}
+      <box padding={1}>
+        <box flexDirection="row" backgroundColor="#2a2a3e" padding={1} gap={1}>
+          <box
+            width="50%"
+            backgroundColor="#383850"
+            padding={1}
+            justifyContent="center"
+            onMouseDown={onSave}
+          >
+            <text fg="#b5bd68">Yes</text>
+          </box>
+          <box
+            width="50%"
+            backgroundColor="#383850"
+            padding={1}
+            justifyContent="center"
+            onMouseDown={onDiscard}
+          >
+            <text fg="#cc6666">No</text>
+          </box>
         </box>
       </box>
     </box>
