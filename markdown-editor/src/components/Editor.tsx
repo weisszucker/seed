@@ -1,5 +1,5 @@
 // @ts-nocheck - OpenTUI textarea types are not fully compatible
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import { useKeyboard, useRenderer } from "@opentui/react";
 
 interface EditorProps {
@@ -11,18 +11,44 @@ interface EditorProps {
   onFocus: () => void;
 }
 
-export function Editor({
-  content,
-  onChange,
-  filePath,
-  isModified,
-  focused,
-  onFocus,
-}: EditorProps) {
+export interface EditorRef {
+  getContent: () => string;
+}
+
+export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
+  {
+    content,
+    onChange,
+    filePath,
+    isModified,
+    focused,
+    onFocus,
+  },
+  ref
+) {
   const textareaRef = useRef<any>(null);
   const renderer = useRenderer();
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
+
+  // Expose getContent method to parent
+  useImperativeHandle(ref, () => ({
+    getContent: () => {
+      const textarea = textareaRef.current;
+      if (textarea && textarea.editBuffer) {
+        return textarea.editBuffer.getText();
+      }
+      return content;
+    },
+  }), [content]);
+
+  // Set initial content when textarea mounts or file changes
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && textarea.editBuffer && content) {
+      textarea.editBuffer.setText(content);
+    }
+  }, [filePath, content]);
 
   // Focus textarea when focused prop changes
   useEffect(() => {
@@ -31,27 +57,32 @@ export function Editor({
     }
   }, [focused]);
 
+  // Handle content changes from textarea
+  const handleChange = useCallback((newContent: string) => {
+    onChange(newContent);
+    
+    // Update cursor position
+    const textarea = textareaRef.current;
+    if (textarea && textarea.editBuffer) {
+      const pos = textarea.editBuffer.getCursorPosition?.();
+      if (pos) {
+        setCursorLine(pos.row + 1);
+        setCursorCol(pos.col + 1);
+      }
+    }
+  }, [onChange]);
+
   // Handle keyboard shortcuts within editor
   useKeyboard((key) => {
     if (!focused) return;
 
-    // Let textarea handle most keys, but capture some shortcuts
-    if (key.ctrl && key.name === "c") {
-      // Copy - let textarea handle this natively
-      return;
-    }
-
-    if (key.ctrl && key.name === "v") {
-      // Paste - handled by textarea
-      return;
-    }
-
     // Track cursor position for status bar
-    if (textareaRef.current) {
-      const pos = textareaRef.current.getCursorPosition?.();
+    const textarea = textareaRef.current;
+    if (textarea && textarea.editBuffer) {
+      const pos = textarea.editBuffer.getCursorPosition?.();
       if (pos) {
-        setCursorLine(pos.line + 1);
-        setCursorCol(pos.column + 1);
+        setCursorLine(pos.row + 1);
+        setCursorCol(pos.col + 1);
       }
     }
   });
@@ -94,8 +125,9 @@ export function Editor({
   return (
     <box
       flexDirection="column"
-      flexGrow={1}
+      width="100%"
       height="100%"
+      backgroundColor="#1a1a2e"
       onMouseDown={onFocus}
     >
       {/* Header */}
@@ -107,11 +139,12 @@ export function Editor({
       </box>
 
       {/* Editor */}
-      <box flexGrow={1} flexDirection="column">
+      <box flexGrow={1} flexDirection="column" padding={1} minHeight={0} backgroundColor="#1a1a2e">
         <textarea
-          // @ts-ignore
+          key={filePath || "untitled"}
           ref={textareaRef}
-          onChange={onChange}
+          initialValue={content}
+          onChange={handleChange}
           language={getLanguage(filePath)}
           showLineNumbers
           wrapText={false}
@@ -126,4 +159,4 @@ export function Editor({
       </box>
     </box>
   );
-}
+});

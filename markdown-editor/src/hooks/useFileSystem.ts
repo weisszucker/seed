@@ -84,7 +84,7 @@ export function useFileSystem(initialDir: string) {
   }, []);
 
   // Save current file
-  const saveFile = useCallback(async (filePath?: string) => {
+  const saveFile = useCallback(async (filePath?: string, contentOverride?: string) => {
     if (!currentFile) return { success: false, error: "No file open" };
 
     const pathToSave = filePath || currentFile.path;
@@ -92,14 +92,18 @@ export function useFileSystem(initialDir: string) {
       return { success: false, error: "No file path specified" };
     }
 
+    // Use contentOverride if provided, otherwise use currentFile.content
+    const contentToSave = contentOverride !== undefined ? contentOverride : currentFile.content;
+
     try {
-      await writeFile(pathToSave, currentFile.content);
+      await writeFile(pathToSave, contentToSave);
       setCurrentFile((prev) => {
         if (!prev) return null;
         return {
           ...prev,
           path: pathToSave,
-          originalContent: prev.content,
+          content: contentToSave,
+          originalContent: contentToSave,
           isModified: false,
           isNew: false,
         };

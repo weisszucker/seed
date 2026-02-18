@@ -1,11 +1,12 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useRenderer, useKeyboard } from "@opentui/react";
 import { useFileSystem } from "../hooks/useFileSystem.js";
 import { FileTree } from "./FileTree.js";
-import { Editor } from "./Editor.js";
+import { Editor, EditorRef } from "./Editor.js";
 import { StatusBar } from "./StatusBar.js";
 import { FileDialog } from "./FileDialog.js";
 import { SavePrompt } from "./SavePrompt.js";
+import { SaveAsDialog } from "./SaveAsDialog.js";
 import { FileNode } from "../utils/fileTree.js";
 
 interface AppProps {
@@ -14,6 +15,8 @@ interface AppProps {
 
 export function App({ initialDir }: AppProps) {
   const renderer = useRenderer();
+  const editorRef = useRef<EditorRef>(null);
+  
   const {
     currentDir,
     fileTree,
@@ -32,11 +35,54 @@ export function App({ initialDir }: AppProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set([initialDir]));
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: "open" | "new" | "quit";
     path?: string;
   } | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+
+  // Get current content from editor
+  const getCurrentContent = useCallback(() => {
+    if (editorRef.current) {
+      return editorRef.current.getContent();
+    }
+    return currentFile?.content || "";
+  }, [currentFile?.content]);
+
+  // Save with current editor content
+  const handleSaveFile = useCallback(async () => {
+    // If no path, show SaveAs dialog
+    if (!currentFile?.path) {
+      setShowSaveAsDialog(true);
+      return { success: false, error: "No path" };
+    }
+    
+    const content = getCurrentContent();
+    return saveFile(undefined, content);
+  }, [currentFile?.path, getCurrentContent, saveFile]);
+
+  // Handle save as
+  const handleSaveAs = useCallback(async (path: string) => {
+    setShowSaveAsDialog(false);
+    const content = getCurrentContent();
+    const result = await saveFile(path, content);
+    
+    if (result.success) {
+      // After saving, clear pending action if any
+      if (pendingAction) {
+        if (pendingAction.type === "open" && pendingAction.path) {
+          await openFile(pendingAction.path);
+          setCurrentFocus("editor");
+        } else if (pendingAction.type === "new") {
+          newFile();
+        } else if (pendingAction.type === "quit") {
+          renderer.destroy();
+        }
+        setPendingAction(null);
+      }
+    }
+  }, [getCurrentContent, saveFile, pendingAction, openFile, newFile, renderer]);
 
   // Flatten file tree for dialog
   const flatFileList = useMemo(() => {
@@ -91,7 +137,7 @@ export function App({ initialDir }: AppProps) {
     useCallback(
       (key) => {
         // Don't handle shortcuts if dialog is open
-        if (showFileDialog || showSavePrompt) return;
+        if (showFileDialog || showSavePrompt || showSaveAsDialog) return;
 
         // Ctrl+O: Open file dialog
         if (key.ctrl && key.name === "o") {
@@ -99,13 +145,13 @@ export function App({ initialDir }: AppProps) {
           return;
         }
 
-        // Ctrl+S: Save file
+        // Ctrl+S: Save file (or Save As if new file)
         if (key.ctrl && key.name === "s") {
           if (key.shift) {
-            // Save As - not implemented yet, just save
-            saveFile();
+            // Ctrl+Shift+S = Save As
+            setShowSaveAsDialog(true);
           } else {
-            saveFile();
+            handleSaveFile();
           }
           return;
         }
@@ -149,13 +195,20 @@ export function App({ initialDir }: AppProps) {
           return;
         }
       },
-      [showFileDialog, showSavePrompt, currentFile, saveFile, newFile, renderer, refreshFileTree]
+      [showFileDialog, showSavePrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree]
     )
   );
 
   // Handle save prompt actions
   const handleSavePromptSave = useCallback(async () => {
-    const result = await saveFile();
+    // If no path, show SaveAs dialog instead
+    if (!currentFile?.path) {
+      setShowSavePrompt(false);
+      setShowSaveAsDialog(true);
+      return;
+    }
+    
+    const result = await handleSaveFile();
     if (result.success) {
       setShowSavePrompt(false);
       
@@ -171,21 +224,17 @@ export function App({ initialDir }: AppProps) {
       
       setPendingAction(null);
     }
-  }, [pendingAction, saveFile, openFile, newFile, renderer]);
+  }, [currentFile?.path, handleSaveFile, pendingAction, openFile, newFile, renderer]);
 
   const handleSavePromptDiscard = useCallback(() => {
     setShowSavePrompt(false);
     
     // Execute pending action without saving
     if (pendingAction?.type === "open" && pendingAction.path) {
-      // Force open without save check by temporarily clearing modified state
-      // This is handled in the useFileSystem hook
       openFile(pendingAction.path).then(() => {
         setCurrentFocus("editor");
       });
     } else if (pendingAction?.type === "new") {
-      // Just close the prompt and let user try newFile again
-      // The newFile function will handle it
       newFile();
     } else if (pendingAction?.type === "quit") {
       renderer.destroy();
@@ -216,7 +265,7 @@ export function App({ initialDir }: AppProps) {
   }, [currentFile, openFile]);
 
   return (
-    <box flexDirection="column" width="100%" height="100%" backgroundColor="#1a1a2e">
+    <box flexDirection="column" width="100%" height="100%" backgroundColor="#0d0d14">
       {/* Error message */}
       {error && (
         <box backgroundColor="#cc6666" padding={1}>
@@ -225,7 +274,20 @@ export function App({ initialDir }: AppProps) {
       )}
 
       {/* Main content area */}
-      <box flexDirection="row" flexGrow={1} height="100%">
+      <box flexDirection="row" flexGrow={1} height="100%" backgroundColor="#0d0d14" padding={1} gap={1}>
+        {/* Editor */}
+        <box width="70%" height="100%" flexDirection="column" backgroundColor="#1a1a2e" paddingX={1}>
+          <Editor
+            ref={editorRef}
+            content={currentFile?.content || ""}
+            onChange={updateContent}
+            filePath={currentFile?.path || ""}
+            isModified={currentFile?.isModified || false}
+            focused={currentFocus === "editor"}
+            onFocus={() => setCurrentFocus("editor")}
+          />
+        </box>
+
         {/* Sidebar */}
         <box width="30%" height="100%" border backgroundColor="#1a1a2e">
           <FileTree
@@ -235,18 +297,6 @@ export function App({ initialDir }: AppProps) {
             expandedDirs={expandedDirs}
             onToggleDir={handleToggleDir}
             focused={currentFocus === "sidebar"}
-          />
-        </box>
-
-        {/* Editor */}
-        <box flexGrow={1} height="100%" flexDirection="column">
-          <Editor
-            content={currentFile?.content || ""}
-            onChange={updateContent}
-            filePath={currentFile?.path || ""}
-            isModified={currentFile?.isModified || false}
-            focused={currentFocus === "editor"}
-            onFocus={() => setCurrentFocus("editor")}
           />
         </box>
       </box>
@@ -275,6 +325,14 @@ export function App({ initialDir }: AppProps) {
         onSave={handleSavePromptSave}
         onDiscard={handleSavePromptDiscard}
         onCancel={handleSavePromptCancel}
+      />
+
+      <SaveAsDialog
+        isOpen={showSaveAsDialog}
+        currentDir={currentDir}
+        onClose={() => setShowSaveAsDialog(false)}
+        onSave={handleSaveAs}
+        defaultName="untitled.md"
       />
     </box>
   );
