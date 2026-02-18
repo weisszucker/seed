@@ -9,6 +9,7 @@ import { SavePrompt } from "./SavePrompt.js";
 import { QuitPrompt } from "./QuitPrompt.js";
 import { SaveAsDialog } from "./SaveAsDialog.js";
 import { FileNode } from "../utils/fileTree.js";
+import { useTheme } from "../theme-context.js";
 
 interface AppProps {
   initialDir: string;
@@ -17,6 +18,7 @@ interface AppProps {
 export function App({ initialDir }: AppProps) {
   const renderer = useRenderer();
   const editorRef = useRef<EditorRef>(null);
+  const { theme, reloadTheme } = useTheme();
   
   const {
     currentDir,
@@ -43,6 +45,7 @@ export function App({ initialDir }: AppProps) {
     path?: string;
   } | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Get current content from editor
   const getCurrentContent = useCallback(() => {
@@ -199,6 +202,19 @@ export function App({ initialDir }: AppProps) {
           return;
         }
 
+        // Ctrl+T: Reload theme tokens
+        if (key.ctrl && key.name === "t") {
+          try {
+            reloadTheme();
+            setNotice("Theme reloaded");
+            setTimeout(() => setNotice(null), 1200);
+          } catch {
+            setNotice("Theme reload failed");
+            setTimeout(() => setNotice(null), 1200);
+          }
+          return;
+        }
+
         // Ctrl+R: Refresh file tree
         if (key.ctrl && key.name === "r") {
           refreshFileTree();
@@ -217,7 +233,7 @@ export function App({ initialDir }: AppProps) {
           return;
         }
       },
-      [showFileDialog, showSavePrompt, showQuitPrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree, handleQuitConfirm, handleQuitCancel]
+      [showFileDialog, showSavePrompt, showQuitPrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree, handleQuitConfirm, handleQuitCancel, reloadTheme]
     )
   );
 
@@ -287,18 +303,25 @@ export function App({ initialDir }: AppProps) {
   }, [currentFile, openFile]);
 
   return (
-    <box flexDirection="column" width="100%" height="100%" backgroundColor="#0d0d14">
+    <box flexDirection="column" width="100%" height="100%" backgroundColor={theme.colors.appBackground}>
       {/* Error message */}
       {error && (
-        <box backgroundColor="#cc6666" padding={1}>
-          <text fg="#ffffff">{error}</text>
+        <box backgroundColor={theme.colors.danger} padding={1}>
+          <text fg={theme.colors.white}>{error}</text>
         </box>
       )}
 
       {/* Main content area */}
-      <box flexDirection="row" flexGrow={1} height="100%" backgroundColor="#0d0d14" padding={1} gap={1}>
+      <box
+        flexDirection="row"
+        flexGrow={1}
+        height="100%"
+        backgroundColor={theme.colors.appBackground}
+        padding={theme.spacing.sm}
+        gap={theme.spacing.sm}
+      >
         {/* Editor */}
-        <box width="70%" height="100%" flexDirection="column" backgroundColor="#1a1a2e" paddingX={1}>
+        <box width="70%" height="100%" flexDirection="column" backgroundColor={theme.colors.panelBackground} paddingX={theme.spacing.sm}>
           <Editor
             ref={editorRef}
             content={currentFile?.content || ""}
@@ -311,7 +334,7 @@ export function App({ initialDir }: AppProps) {
         </box>
 
         {/* Sidebar */}
-        <box width="30%" height="100%" border backgroundColor="#1a1a2e">
+        <box width="30%" height="100%" border backgroundColor={theme.colors.panelBackground}>
           <FileTree
             tree={fileTree}
             currentFilePath={currentFile?.path || null}
@@ -330,6 +353,7 @@ export function App({ initialDir }: AppProps) {
         cursorLine={cursorPos.line}
         cursorCol={cursorPos.col}
         currentFocus={currentFocus}
+        notice={notice}
       />
 
       {/* Modals */}
