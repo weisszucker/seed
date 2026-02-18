@@ -6,6 +6,7 @@ import { Editor, EditorRef } from "./Editor.js";
 import { StatusBar } from "./StatusBar.js";
 import { FileDialog } from "./FileDialog.js";
 import { SavePrompt } from "./SavePrompt.js";
+import { QuitPrompt } from "./QuitPrompt.js";
 import { SaveAsDialog } from "./SaveAsDialog.js";
 import { FileNode } from "../utils/fileTree.js";
 
@@ -35,6 +36,7 @@ export function App({ initialDir }: AppProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set([initialDir]));
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [showQuitPrompt, setShowQuitPrompt] = useState(false);
   const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: "open" | "new" | "quit";
@@ -132,12 +134,32 @@ export function App({ initialDir }: AppProps) {
     }
   }, [openFile]);
 
+  const handleQuitConfirm = useCallback(() => {
+    setShowQuitPrompt(false);
+    if (currentFile?.isModified) {
+      setPendingAction({ type: "quit" });
+      setShowSavePrompt(true);
+    } else {
+      renderer.destroy();
+    }
+  }, [currentFile?.isModified, renderer]);
+
+  const handleQuitCancel = useCallback(() => {
+    setShowQuitPrompt(false);
+  }, []);
+
   // Keyboard shortcuts
   useKeyboard(
     useCallback(
       (key) => {
-        // Don't handle shortcuts if dialog is open
+        // Don't handle shortcuts if dialog is open (except QuitPrompt Y/N)
         if (showFileDialog || showSavePrompt || showSaveAsDialog) return;
+
+        if (showQuitPrompt) {
+          if (key.name === "y") handleQuitConfirm();
+          else if (key.name === "n" || key.name === "escape") handleQuitCancel();
+          return;
+        }
 
         // Ctrl+O: Open file dialog
         if (key.ctrl && key.name === "o") {
@@ -166,14 +188,14 @@ export function App({ initialDir }: AppProps) {
           return;
         }
 
-        // Ctrl+Q: Quit
+        // Ctrl+C: Ignore (do not quit; use Ctrl+Q instead)
+        if (key.ctrl && key.name === "c") {
+          return;
+        }
+
+        // Ctrl+Q: Quit (show confirmation first)
         if (key.ctrl && key.name === "q") {
-          if (currentFile?.isModified) {
-            setPendingAction({ type: "quit" });
-            setShowSavePrompt(true);
-          } else {
-            renderer.destroy();
-          }
+          setShowQuitPrompt(true);
           return;
         }
 
@@ -195,7 +217,7 @@ export function App({ initialDir }: AppProps) {
           return;
         }
       },
-      [showFileDialog, showSavePrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree]
+      [showFileDialog, showSavePrompt, showQuitPrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree, handleQuitConfirm, handleQuitCancel]
     )
   );
 
@@ -325,6 +347,12 @@ export function App({ initialDir }: AppProps) {
         onSave={handleSavePromptSave}
         onDiscard={handleSavePromptDiscard}
         onCancel={handleSavePromptCancel}
+      />
+
+      <QuitPrompt
+        isOpen={showQuitPrompt}
+        onConfirm={handleQuitConfirm}
+        onCancel={handleQuitCancel}
       />
 
       <SaveAsDialog
