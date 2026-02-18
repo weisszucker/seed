@@ -21,14 +21,21 @@ cd /home/panzh/seed
 # Install dependencies (requires Bun)
 bun install
 
+# Enable global `seed` command
+bun run setup
+
 # Or with npm
 npm install
+npm run setup
 ```
 
 ## Usage
 
 ```bash
 # Run the editor in current directory
+seed
+
+# Or run directly from project root
 bun run src/index.tsx
 
 # Or with npm
