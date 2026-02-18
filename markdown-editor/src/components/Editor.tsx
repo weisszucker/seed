@@ -133,8 +133,7 @@ export const Editor = forwardRef<EditorRef, EditorProps>(function Editor(
       {/* Header */}
       <box flexDirection="row" padding={1} backgroundColor="#1a1a2e">
         <text>
-          <span fg="#81a2be">📄</span>
-          <span> {displayName}</span>
+          <span fg="#81a2be">{displayName}</span>
         </text>
       </box>
 
