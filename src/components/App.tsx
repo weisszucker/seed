@@ -38,6 +38,7 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
 
   // UI State
   const [currentFocus, setCurrentFocus] = useState<"sidebar" | "editor">("editor");
+  const [showFileTree, setShowFileTree] = useState(true);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set([initialDir]));
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSavePrompt, setShowSavePrompt] = useState(false);
@@ -238,9 +239,20 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
           return;
         }
 
-        // Toggle focus
+        // Toggle focus (only when file tree is visible)
         if (keyMatchesBinding(key, settings.keybindings.toggleFocus)) {
-          setCurrentFocus((prev) => (prev === "sidebar" ? "editor" : "sidebar"));
+          if (showFileTree) {
+            setCurrentFocus((prev) => (prev === "sidebar" ? "editor" : "sidebar"));
+          }
+          return;
+        }
+
+        // Toggle file tree panel
+        if (keyMatchesBinding(key, settings.keybindings.toggleFileTree)) {
+          setShowFileTree((prev) => {
+            if (prev) setCurrentFocus("editor");
+            return !prev;
+          });
           return;
         }
 
@@ -255,6 +267,7 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
         showSavePrompt,
         showQuitPrompt,
         showSaveAsDialog,
+        showFileTree,
         currentFile,
         handleSaveFile,
         newFile,
@@ -267,6 +280,13 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
       ]
     )
   );
+
+  // When file tree is hidden, keep focus on editor
+  useEffect(() => {
+    if (!showFileTree && currentFocus === "sidebar") {
+      setCurrentFocus("editor");
+    }
+  }, [showFileTree, currentFocus]);
 
   // Handle save prompt actions
   const handleSavePromptSave = useCallback(async () => {
@@ -349,10 +369,17 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
         height="100%"
         backgroundColor={theme.colors.appBackground}
         padding={theme.spacing.sm}
-        gap={theme.spacing.sm}
+        gap={showFileTree ? theme.spacing.sm : 0}
+        justifyContent={showFileTree ? undefined : "center"}
       >
         {/* Editor */}
-        <box width="70%" height="100%" flexDirection="column" backgroundColor={theme.colors.panelBackground} paddingX={theme.spacing.sm}>
+        <box
+          width="70%"
+          height="100%"
+          flexDirection="column"
+          backgroundColor={theme.colors.panelBackground}
+          paddingX={theme.spacing.sm}
+        >
           <Editor
             ref={editorRef}
             content={currentFile?.content || ""}
@@ -364,17 +391,19 @@ export function App({ initialDir, settings, settingsWarning }: AppProps) {
           />
         </box>
 
-        {/* Sidebar */}
-        <box width="30%" height="100%" border backgroundColor={theme.colors.panelBackground}>
-          <FileTree
-            tree={fileTree}
-            currentFilePath={currentFile?.path || null}
-            onFileSelect={handleFileSelect}
-            expandedDirs={expandedDirs}
-            onToggleDir={handleToggleDir}
-            focused={currentFocus === "sidebar"}
-          />
-        </box>
+        {/* Sidebar (optional) */}
+        {showFileTree && (
+          <box width="30%" height="100%" border backgroundColor={theme.colors.panelBackground}>
+            <FileTree
+              tree={fileTree}
+              currentFilePath={currentFile?.path || null}
+              onFileSelect={handleFileSelect}
+              expandedDirs={expandedDirs}
+              onToggleDir={handleToggleDir}
+              focused={currentFocus === "sidebar"}
+            />
+          </box>
+        )}
       </box>
 
       {/* Status bar */}
