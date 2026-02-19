@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRenderer, useKeyboard } from "@opentui/react";
 import { useFileSystem } from "../hooks/useFileSystem.js";
 import { FileTree } from "./FileTree.js";
@@ -10,12 +10,15 @@ import { QuitPrompt } from "./QuitPrompt.js";
 import { SaveAsDialog } from "./SaveAsDialog.js";
 import { FileNode } from "../utils/fileTree.js";
 import { useTheme } from "../theme-context.js";
+import { keyMatchesBinding, type SeedSettings } from "../settings.js";
 
 interface AppProps {
   initialDir: string;
+  settings: SeedSettings;
+  settingsWarning?: string | null;
 }
 
-export function App({ initialDir }: AppProps) {
+export function App({ initialDir, settings, settingsWarning }: AppProps) {
   const renderer = useRenderer();
   const editorRef = useRef<EditorRef>(null);
   const { theme, reloadTheme } = useTheme();
@@ -46,6 +49,13 @@ export function App({ initialDir }: AppProps) {
   } | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!settingsWarning) return;
+    setNotice(settingsWarning);
+    const timer = setTimeout(() => setNotice(null), 2200);
+    return () => clearTimeout(timer);
+  }, [settingsWarning]);
 
   // Get current content from editor
   const getCurrentContent = useCallback(() => {
@@ -159,30 +169,37 @@ export function App({ initialDir }: AppProps) {
         if (showFileDialog || showSavePrompt || showSaveAsDialog) return;
 
         if (showQuitPrompt) {
-          if (key.name === "y") handleQuitConfirm();
-          else if (key.name === "n" || key.name === "escape") handleQuitCancel();
-          return;
-        }
-
-        // Ctrl+O: Open file dialog
-        if (key.ctrl && key.name === "o") {
-          setShowFileDialog(true);
-          return;
-        }
-
-        // Ctrl+S: Save file (or Save As if new file)
-        if (key.ctrl && key.name === "s") {
-          if (key.shift) {
-            // Ctrl+Shift+S = Save As
-            setShowSaveAsDialog(true);
-          } else {
-            handleSaveFile();
+          if (keyMatchesBinding(key, settings.keybindings.quitConfirmYes)) {
+            handleQuitConfirm();
+          } else if (
+            keyMatchesBinding(key, settings.keybindings.quitConfirmNo) ||
+            keyMatchesBinding(key, settings.keybindings.cancel)
+          ) {
+            handleQuitCancel();
           }
           return;
         }
 
-        // Ctrl+N: New file
-        if (key.ctrl && key.name === "n") {
+        // Open file dialog
+        if (keyMatchesBinding(key, settings.keybindings.openFile)) {
+          setShowFileDialog(true);
+          return;
+        }
+
+        // Save file
+        if (keyMatchesBinding(key, settings.keybindings.saveFile)) {
+          handleSaveFile();
+          return;
+        }
+
+        // Save As
+        if (keyMatchesBinding(key, settings.keybindings.saveAs)) {
+          setShowSaveAsDialog(true);
+          return;
+        }
+
+        // New file
+        if (keyMatchesBinding(key, settings.keybindings.newFile)) {
           const result = newFile();
           if (result.needsSave) {
             setPendingAction({ type: "new" });
@@ -191,19 +208,19 @@ export function App({ initialDir }: AppProps) {
           return;
         }
 
-        // Ctrl+C: Ignore (do not quit; use Ctrl+Q instead)
+        // Ctrl+C: Ignore (do not quit)
         if (key.ctrl && key.name === "c") {
           return;
         }
 
-        // Ctrl+Q: Quit (show confirmation first)
-        if (key.ctrl && key.name === "q") {
+        // Quit (show confirmation first)
+        if (keyMatchesBinding(key, settings.keybindings.quit)) {
           setShowQuitPrompt(true);
           return;
         }
 
-        // Ctrl+T: Reload theme tokens
-        if (key.ctrl && key.name === "t") {
+        // Reload theme tokens
+        if (keyMatchesBinding(key, settings.keybindings.reloadTheme)) {
           try {
             reloadTheme();
             setNotice("Theme reloaded");
@@ -215,25 +232,39 @@ export function App({ initialDir }: AppProps) {
           return;
         }
 
-        // Ctrl+R: Refresh file tree
-        if (key.ctrl && key.name === "r") {
+        // Refresh file tree
+        if (keyMatchesBinding(key, settings.keybindings.refreshTree)) {
           refreshFileTree();
           return;
         }
 
-        // Tab: Toggle focus
-        if (key.name === "tab" && !key.ctrl) {
+        // Toggle focus
+        if (keyMatchesBinding(key, settings.keybindings.toggleFocus)) {
           setCurrentFocus((prev) => (prev === "sidebar" ? "editor" : "sidebar"));
           return;
         }
 
-        // Escape: Switch focus to editor
-        if (key.name === "escape") {
+        // Cancel / escape behavior
+        if (keyMatchesBinding(key, settings.keybindings.cancel)) {
           setCurrentFocus("editor");
           return;
         }
       },
-      [showFileDialog, showSavePrompt, showQuitPrompt, showSaveAsDialog, currentFile, handleSaveFile, newFile, renderer, refreshFileTree, handleQuitConfirm, handleQuitCancel, reloadTheme]
+      [
+        showFileDialog,
+        showSavePrompt,
+        showQuitPrompt,
+        showSaveAsDialog,
+        currentFile,
+        handleSaveFile,
+        newFile,
+        renderer,
+        refreshFileTree,
+        handleQuitConfirm,
+        handleQuitCancel,
+        reloadTheme,
+        settings,
+      ]
     )
   );
 

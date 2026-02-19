@@ -42,6 +42,37 @@ bun run src/index.tsx
 npm start
 ```
 
+## Global Settings
+
+You can customize behavior (for example key bindings) with a global config file:
+
+- Path: `~/.seed`
+- Format: JSON
+
+Example:
+
+```json
+{
+  "keybindings": {
+    "openFile": "ctrl+o",
+    "saveFile": "ctrl+s",
+    "saveAs": "ctrl+shift+s",
+    "newFile": "ctrl+n",
+    "quit": "ctrl+q",
+    "refreshTree": "ctrl+r",
+    "reloadTheme": "ctrl+t",
+    "toggleFocus": "tab",
+    "cancel": "escape",
+    "quitConfirmYes": "y",
+    "quitConfirmNo": "n"
+  }
+}
+```
+
+If `~/.seed` is missing, Seed uses built-in defaults.
+If `~/.seed` contains invalid JSON, Seed falls back to defaults and shows a warning.
+Key combinations accept both `ctrl+s` and `ctrl-s` styles.
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
