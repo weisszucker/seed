@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="$HOME/.local/bin"
 WRAPPER="$LOCAL_BIN/seed"
+SETTINGS_FILE="$HOME/.seed"
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "Error: bun is required but not found in PATH."
@@ -25,6 +26,27 @@ EOF
 chmod +x "$WRAPPER"
 
 echo "Installed launcher: $WRAPPER"
+
+if [[ ! -f "$SETTINGS_FILE" ]]; then
+  cat > "$SETTINGS_FILE" <<EOF
+{
+  "keybindings": {
+    "openFile": "ctrl+o",
+    "saveFile": "ctrl+s",
+    "saveAs": "ctrl+shift+s",
+    "newFile": "ctrl+n",
+    "quit": "ctrl+q",
+    "refreshTree": "ctrl+r",
+    "reloadTheme": "ctrl+t",
+    "toggleFocus": "tab",
+    "cancel": "escape",
+    "quitConfirmYes": "y",
+    "quitConfirmNo": "n"
+  }
+}
+EOF
+  echo "Created default settings file: $SETTINGS_FILE"
+fi
 
 if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
   echo "Note: $LOCAL_BIN is not in PATH. Add this line to your shell profile:"
