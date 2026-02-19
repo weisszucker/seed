@@ -10,6 +10,7 @@ export type KeyBindingAction =
   | "refreshTree"
   | "reloadTheme"
   | "toggleFocus"
+  | "toggleFileTree"
   | "cancel"
   | "quitConfirmYes"
   | "quitConfirmNo";
@@ -33,6 +34,7 @@ export const defaultSettings: SeedSettings = {
     refreshTree: "ctrl+r",
     reloadTheme: "ctrl+t",
     toggleFocus: "tab",
+    toggleFileTree: "ctrl+f",
     cancel: "escape",
     quitConfirmYes: "y",
     quitConfirmNo: "n",
