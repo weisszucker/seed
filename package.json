@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "seed": "./src/index.tsx"
+    "seed": "./bin/seed"
   },
   "scripts": {
     "dev": "bun --watch run src/index.tsx",
