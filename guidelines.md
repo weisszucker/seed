@@ -158,6 +158,10 @@ When the prompt is visible, editor and sidebar operations must be disabled; only
 
 Prompt outcomes must be deterministic and explicit (save, don't save, cancel).
 
+4.5 UI should be self-explanatory
+
+The UI should be designed in the way so that the user is able to know how to interact with the system. Restrain from using explanatory text, but using UI elements, such as highlighting, arrow, size, font-weight, position and so on to guide the user. 
+
 5. Side Effects & External Interaction
 5.1 Effects Are Explicit and Isolated
 
