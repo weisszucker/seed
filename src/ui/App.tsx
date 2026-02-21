@@ -120,6 +120,7 @@ export function App() {
           selectedOption={unsavedChangesModal.selectedOption}
           onChooseSave={() => runtime.dispatch({ type: "PROMPT_CHOOSE_SAVE" })}
           onChooseDontSave={() => runtime.dispatch({ type: "PROMPT_CHOOSE_DONT_SAVE" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}
 

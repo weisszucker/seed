@@ -2,9 +2,10 @@ type UnsavedChangesModalProps = {
   selectedOption: "save" | "dont_save"
   onChooseSave: () => void
   onChooseDontSave: () => void
+  onCancel: () => void
 }
 
-export function UnsavedChangesModal({ selectedOption, onChooseSave, onChooseDontSave }: UnsavedChangesModalProps) {
+export function UnsavedChangesModal({ selectedOption, onChooseSave, onChooseDontSave, onCancel }: UnsavedChangesModalProps) {
   return (
     <box position="absolute" left={0} top={0} width="100%" height="100%" justifyContent="center" alignItems="center" zIndex={100}>
       <box
@@ -21,7 +22,7 @@ export function UnsavedChangesModal({ selectedOption, onChooseSave, onChooseDont
         <box flexDirection="row" alignItems="center">
           <text fg="#ffd580">Unsaved changes</text>
           <box flexGrow={1} />
-          <box paddingLeft={0} paddingRight={0} onMouseDown={onChooseDontSave}>
+          <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
             <text fg="#aaaaaa">esc</text>
           </box>
         </box>
