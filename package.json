@@ -1,0 +1,25 @@
+{
+  "name": "seed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "seed": "./src/index.tsx"
+  },
+  "scripts": {
+    "dev": "bun --watch run src/index.tsx",
+    "start": "bun run src/index.tsx",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": ">=19.0.0",
+    "typescript": "latest"
+  }
+}
