@@ -92,7 +92,12 @@ export function App() {
 
   return (
     <box flexDirection="column" width="100%" height="100%" backgroundColor="#06080d" padding={1}>
-      <box flexDirection="row" flexGrow={1} justifyContent={state.sidebarVisible ? "flex-start" : "center"} gap={1}>
+      <box
+        flexDirection="row"
+        flexGrow={1}
+        justifyContent={state.sidebarVisible ? "flex-start" : "center"}
+        gap={state.sidebarVisible ? 1 : 0}
+      >
         <EditorPane
           sidebarVisible={state.sidebarVisible}
           title={formatTitle(state.document.path)}

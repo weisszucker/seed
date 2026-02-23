@@ -14,25 +14,24 @@ type SidebarPaneProps = {
 }
 
 export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath, locked, dispatch }: SidebarPaneProps) {
+  if (!visible) {
+    return null
+  }
+
   const rootTitle = basename(cwd) || cwd || "."
   return (
-    <box width={visible ? "34%" : 0} flexDirection="column" padding={visible ? 1 : 0}
-    backgroundColor="#111111">
-      {visible ? (
-        <>
-          <text fg="#8fbc8f">{rootTitle}</text>
-          <scrollbox flexGrow={1} marginTop={1}>
-            <TreeNodes
-              nodes={fileTree}
-              expandedDirs={expandedDirs}
-              selectedPath={selectedPath}
-              depth={0}
-              disabled={locked}
-              dispatch={dispatch}
-            />
-          </scrollbox>
-        </>
-      ) : null}
+    <box width="34%" flexDirection="column" padding={1} backgroundColor="#111111">
+      <text fg="#8fbc8f">{rootTitle}</text>
+      <scrollbox flexGrow={1} marginTop={1}>
+        <TreeNodes
+          nodes={fileTree}
+          expandedDirs={expandedDirs}
+          selectedPath={selectedPath}
+          depth={0}
+          disabled={locked}
+          dispatch={dispatch}
+        />
+      </scrollbox>
     </box>
   )
 }
