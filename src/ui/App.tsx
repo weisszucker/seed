@@ -134,6 +134,7 @@ export function App() {
           pathInput={saveAsModal.pathInput}
           onPathChange={(path) => runtime.dispatch({ type: "SAVE_AS_PATH_UPDATED", path })}
           onSubmit={() => runtime.dispatch({ type: "SAVE_AS_SUBMITTED" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}
     </box>
