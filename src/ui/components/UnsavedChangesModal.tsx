@@ -11,41 +11,41 @@ export function UnsavedChangesModal({ selectedOption, onChooseSave, onChooseDont
       <box
         width={56}
         border
-        borderColor="#cd853f"
+        borderColor="#bb8f66"
         paddingLeft={1}
         paddingRight={1}
         paddingBottom={0}
         paddingTop={0}
-        backgroundColor="#1f1f1f"
+        backgroundColor="#252932"
         flexDirection="column"
       >
         <box flexDirection="row" alignItems="center">
-          <text fg="#ffd580">Unsaved changes</text>
+          <text fg="#e2bf88">Unsaved changes</text>
           <box flexGrow={1} />
           <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
-            <text fg="#aaaaaa">esc</text>
+            <text fg="#9ca2ab">esc</text>
           </box>
         </box>
         <box flexDirection="row" gap={1} justifyContent="flex-end" marginTop={2}>
           <box
             width={12}
-            backgroundColor={selectedOption === "save" ? "#2f2a1a" : "#1f1f1f"}
+            backgroundColor={selectedOption === "save" ? "#353024" : "#252932"}
             onMouseDown={onChooseSave}
             padding={0}
             alignItems="center"
             justifyContent="center"
           >
-            <text fg={selectedOption === "save" ? "#ffd580" : "#8fbc8f"}>Save</text>
+            <text fg={selectedOption === "save" ? "#e2bf88" : "#9dbb9d"}>Save</text>
           </box>
           <box
             width={12}
-            backgroundColor={selectedOption === "dont_save" ? "#2f2a1a" : "#1f1f1f"}
+            backgroundColor={selectedOption === "dont_save" ? "#353024" : "#252932"}
             onMouseDown={onChooseDontSave}
             padding={0}
             alignItems="center"
             justifyContent="center"
           >
-            <text fg={selectedOption === "dont_save" ? "#ffd580" : "#cd5c5c"}>Don't Save</text>
+            <text fg={selectedOption === "dont_save" ? "#e2bf88" : "#cc8383"}>Don't Save</text>
           </box>
         </box>
       </box>
