@@ -22,7 +22,16 @@ export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath
   const rootTitle = basename(cwd) || cwd || "."
   return (
     <box width={uiLayout.sidebarWidthPercent} flexDirection="column" padding={uiLayout.panelPaddingY} backgroundColor={uiColors.panelBackground}>
-      <text fg={uiColors.sidebarTitle}>{rootTitle}</text>
+      <box
+        onMouseDown={() => {
+          if (locked) {
+            return
+          }
+          dispatch({ type: "REQUEST_REFRESH_FILE_TREE" })
+        }}
+      >
+        <text fg={uiColors.sidebarTitle}>{rootTitle}</text>
+      </box>
       <scrollbox flexGrow={1} marginTop={uiLayout.rowGap}>
         <TreeNodes
           nodes={fileTree}

@@ -17,6 +17,13 @@ function dirtyState() {
 }
 
 describe("unsaved-change prompt gating", () => {
+  test("refresh request triggers file-tree reload effect", () => {
+    const state = createInitialState("/tmp")
+    const result = reduceEvent(state, { type: "REQUEST_REFRESH_FILE_TREE" })
+
+    expect(result.effects).toEqual([{ type: "LOAD_FILE_TREE", rootPath: "/tmp" }])
+  })
+
   test("open file while dirty opens prompt and defers action", () => {
     const state = dirtyState()
     const result = reduceEvent(state, { type: "REQUEST_OPEN_FILE", path: "/tmp/next.md" })
