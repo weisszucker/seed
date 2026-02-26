@@ -12,7 +12,7 @@ type EditorPaneProps = {
 
 export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, locked, onTextChanged }: EditorPaneProps) {
   return (
-    <box width={sidebarVisible ? "66%" : "66%"} flexDirection="column" gap={1} paddingX={2} paddingY={1} marginLeft={1} marginRight={1} backgroundColor="#111111">
+    <box width={sidebarVisible ? "66%" : "100%"} flexDirection="column" gap={1} paddingX={2} paddingY={1} marginLeft={1} marginRight={1} backgroundColor="#111111">
       <box height={1} flexShrink={0}>
         <text fg="#9cdcfe">{title}</text>
       </box>

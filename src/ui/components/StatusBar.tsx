@@ -9,7 +9,7 @@ function formatPath(path: string | null): string {
 
 export function StatusBar({ path, isDirty }: StatusBarProps) {
   return (
-    <box height={1} paddingLeft={1} paddingRight={1} justifyContent="center" marginTop={1}>
+    <box height={1} paddingLeft={2} paddingRight={2} justifyContent="flex-start">
       <text fg="#d4d4d4">
         {formatPath(path)} | {isDirty ? "dirty" : "clean"}
       </text>

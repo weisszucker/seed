@@ -12,6 +12,10 @@ import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
 import { commandFromKeyEvent } from "./keybindings"
 
+const EDITOR_MAX_WIDTH = 100
+const SIDEBAR_TO_EDITOR_RATIO = 34 / 66
+const MAX_LAYOUT_WIDTH_WITH_SIDEBAR = Math.round(EDITOR_MAX_WIDTH * (1 + SIDEBAR_TO_EDITOR_RATIO))
+
 function formatTitle(path: string | null): string {
   if (!path) {
     return "untitled"
@@ -89,13 +93,17 @@ export function App() {
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
+  const contentMaxWidth = state.sidebarVisible ? MAX_LAYOUT_WIDTH_WITH_SIDEBAR : EDITOR_MAX_WIDTH
 
   return (
     <box flexDirection="column" width="100%" height="100%" backgroundColor="#06080d" padding={1}>
       <box
         flexDirection="row"
         flexGrow={1}
-        justifyContent={state.sidebarVisible ? "flex-start" : "center"}
+        width="100%"
+        maxWidth={contentMaxWidth}
+        alignSelf="center"
+        justifyContent="flex-start"
         gap={state.sidebarVisible ? 1 : 0}
       >
         <EditorPane
@@ -118,7 +126,20 @@ export function App() {
         />
       </box>
 
-      <StatusBar path={state.document.path} isDirty={state.document.isDirty} />
+      <box
+        flexDirection="row"
+        width="100%"
+        maxWidth={contentMaxWidth}
+        alignSelf="center"
+        justifyContent="flex-start"
+        gap={state.sidebarVisible ? 1 : 0}
+        marginTop={1}
+      >
+        <box width={state.sidebarVisible ? "66%" : "100%"} marginLeft={1} marginRight={1}>
+          <StatusBar path={state.document.path} isDirty={state.document.isDirty} />
+        </box>
+        {state.sidebarVisible ? <box width="34%" /> : null}
+      </box>
 
       {unsavedChangesModal ? (
         <UnsavedChangesModal
