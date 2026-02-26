@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { syntaxColors } from "../theme"
 
 type Segment = {
   text: string
@@ -13,29 +14,29 @@ function parseInline(line: string): Segment[] {
 
   while ((match = regex.exec(line)) !== null) {
     if (match.index > index) {
-      segments.push({ text: line.slice(index, match.index), color: "#c9ced5" })
+      segments.push({ text: line.slice(index, match.index), color: syntaxColors.plain })
     }
 
     const token = match[0]
     if (token.startsWith("`")) {
-      segments.push({ text: token, color: "#cfb381" })
+      segments.push({ text: token, color: syntaxColors.inlineCode })
     } else if (token.startsWith("[")) {
-      segments.push({ text: token, color: "#84b8d9" })
+      segments.push({ text: token, color: syntaxColors.link })
     } else if (token.startsWith("**")) {
-      segments.push({ text: token, color: "#e2bf88" })
+      segments.push({ text: token, color: syntaxColors.bold })
     } else {
-      segments.push({ text: token, color: "#b99bbf" })
+      segments.push({ text: token, color: syntaxColors.italic })
     }
 
     index = regex.lastIndex
   }
 
   if (index < line.length) {
-    segments.push({ text: line.slice(index), color: "#c9ced5" })
+    segments.push({ text: line.slice(index), color: syntaxColors.plain })
   }
 
   if (segments.length === 0) {
-    return [{ text: "", color: "#c9ced5" }]
+    return [{ text: "", color: syntaxColors.plain }]
   }
 
   return segments
@@ -43,23 +44,23 @@ function parseInline(line: string): Segment[] {
 
 export function getSimpleLineSegments(line: string, inCodeBlock: boolean): Segment[] {
   if (line.trimStart().startsWith("```")) {
-    return [{ text: line, color: "#7aa8cc" }]
+    return [{ text: line, color: syntaxColors.codeFence }]
   }
 
   if (inCodeBlock) {
-    return [{ text: line, color: "#abc6db" }]
+    return [{ text: line, color: syntaxColors.codeBlock }]
   }
 
   if (/^#{1,6}\s/.test(line)) {
-    return [{ text: line, color: "#88c0aa" }]
+    return [{ text: line, color: syntaxColors.heading }]
   }
 
   if (/^>\s/.test(line)) {
-    return [{ text: line, color: "#95b086" }]
+    return [{ text: line, color: syntaxColors.quote }]
   }
 
   if (/^(\s*[-*+]\s|\s*\d+\.\s)/.test(line)) {
-    return [{ text: line, color: "#b3c5a6" }]
+    return [{ text: line, color: syntaxColors.list }]
   }
 
   return parseInline(line)

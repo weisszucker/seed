@@ -1,3 +1,5 @@
+import { uiColors, uiLayout } from "../../theme"
+
 type SaveAsModalProps = {
   pathInput: string
   onPathChange: (path: string) => void
@@ -7,23 +9,32 @@ type SaveAsModalProps = {
 
 export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: SaveAsModalProps) {
   return (
-    <box position="absolute" left={0} top={0} width="100%" height="100%" justifyContent="center" alignItems="center" zIndex={100}>
+    <box
+      position="absolute"
+      left={0}
+      top={0}
+      width="100%"
+      height="100%"
+      justifyContent="center"
+      alignItems="center"
+      zIndex={uiLayout.modalZIndex}
+    >
       <box
-        width={56}
+        width={uiLayout.modalWidth}
         border
-        borderColor="#bb8f66"
-        paddingLeft={1}
-        paddingRight={1}
+        borderColor={uiColors.modalBorder}
+        paddingLeft={uiLayout.panelOuterMarginX}
+        paddingRight={uiLayout.panelOuterMarginX}
         paddingBottom={0}
         paddingTop={0}
-        backgroundColor="#252932"
+        backgroundColor={uiColors.modalBackground}
         flexDirection="column"
       >
         <box flexDirection="row" alignItems="center">
-          <text fg="#e2bf88">Save As</text>
+          <text fg={uiColors.accent}>Save As</text>
           <box flexGrow={1} />
           <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
-            <text fg="#9ca2ab">esc</text>
+            <text fg={uiColors.textMuted}>esc</text>
           </box>
         </box>
 
@@ -34,9 +45,9 @@ export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: Sav
           onSubmit={onSubmit}
           focused
           placeholder="Enter file path"
-          backgroundColor="#353024"
-          textColor="#d7dbe0"
-          marginTop={2}
+          backgroundColor={uiColors.modalAccentBackground}
+          textColor={uiColors.textPrimary}
+          marginTop={uiLayout.modalHeaderBodyGap}
         />
       </box>
     </box>

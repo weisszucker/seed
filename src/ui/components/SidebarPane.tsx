@@ -1,6 +1,7 @@
 import { basename } from "node:path"
 
 import type { AppEvent, FileNode } from "../../core/types"
+import { uiColors, uiLayout } from "../../theme"
 import { TreeNodes } from "./TreeNodes"
 
 type SidebarPaneProps = {
@@ -20,9 +21,9 @@ export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath
 
   const rootTitle = basename(cwd) || cwd || "."
   return (
-    <box width="34%" flexDirection="column" padding={1} backgroundColor="#1b1f26">
-      <text fg="#9dbb9d">{rootTitle}</text>
-      <scrollbox flexGrow={1} marginTop={1}>
+    <box width={uiLayout.sidebarWidthPercent} flexDirection="column" padding={uiLayout.panelPaddingY} backgroundColor={uiColors.panelBackground}>
+      <text fg={uiColors.sidebarTitle}>{rootTitle}</text>
+      <scrollbox flexGrow={1} marginTop={uiLayout.rowGap}>
         <TreeNodes
           nodes={fileTree}
           expandedDirs={expandedDirs}
