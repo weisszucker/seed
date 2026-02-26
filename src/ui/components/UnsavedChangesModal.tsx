@@ -1,3 +1,5 @@
+import { uiColors, uiLayout } from "../../theme"
+
 type UnsavedChangesModalProps = {
   selectedOption: "save" | "dont_save"
   onChooseSave: () => void
@@ -7,45 +9,54 @@ type UnsavedChangesModalProps = {
 
 export function UnsavedChangesModal({ selectedOption, onChooseSave, onChooseDontSave, onCancel }: UnsavedChangesModalProps) {
   return (
-    <box position="absolute" left={0} top={0} width="100%" height="100%" justifyContent="center" alignItems="center" zIndex={100}>
+    <box
+      position="absolute"
+      left={0}
+      top={0}
+      width="100%"
+      height="100%"
+      justifyContent="center"
+      alignItems="center"
+      zIndex={uiLayout.modalZIndex}
+    >
       <box
-        width={56}
+        width={uiLayout.modalWidth}
         border
-        borderColor="#bb8f66"
-        paddingLeft={1}
-        paddingRight={1}
+        borderColor={uiColors.modalBorder}
+        paddingLeft={uiLayout.panelOuterMarginX}
+        paddingRight={uiLayout.panelOuterMarginX}
         paddingBottom={0}
         paddingTop={0}
-        backgroundColor="#252932"
+        backgroundColor={uiColors.modalBackground}
         flexDirection="column"
       >
         <box flexDirection="row" alignItems="center">
-          <text fg="#e2bf88">Unsaved changes</text>
+          <text fg={uiColors.accent}>Unsaved changes</text>
           <box flexGrow={1} />
           <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
-            <text fg="#9ca2ab">esc</text>
+            <text fg={uiColors.textMuted}>esc</text>
           </box>
         </box>
-        <box flexDirection="row" gap={1} justifyContent="flex-end" marginTop={2}>
+        <box flexDirection="row" gap={uiLayout.rowGap} justifyContent="flex-end" marginTop={uiLayout.modalHeaderBodyGap}>
           <box
-            width={12}
-            backgroundColor={selectedOption === "save" ? "#353024" : "#252932"}
+            width={uiLayout.modalActionWidth}
+            backgroundColor={selectedOption === "save" ? uiColors.modalAccentBackground : uiColors.modalBackground}
             onMouseDown={onChooseSave}
             padding={0}
             alignItems="center"
             justifyContent="center"
           >
-            <text fg={selectedOption === "save" ? "#e2bf88" : "#9dbb9d"}>Save</text>
+            <text fg={selectedOption === "save" ? uiColors.accent : uiColors.sidebarTitle}>Save</text>
           </box>
           <box
-            width={12}
-            backgroundColor={selectedOption === "dont_save" ? "#353024" : "#252932"}
+            width={uiLayout.modalActionWidth}
+            backgroundColor={selectedOption === "dont_save" ? uiColors.modalAccentBackground : uiColors.modalBackground}
             onMouseDown={onChooseDontSave}
             padding={0}
             alignItems="center"
             justifyContent="center"
           >
-            <text fg={selectedOption === "dont_save" ? "#e2bf88" : "#cc8383"}>Don't Save</text>
+            <text fg={selectedOption === "dont_save" ? uiColors.accent : uiColors.danger}>Don't Save</text>
           </box>
         </box>
       </box>

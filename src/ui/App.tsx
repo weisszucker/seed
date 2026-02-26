@@ -11,10 +11,7 @@ import { SidebarPane } from "./components/SidebarPane"
 import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
 import { commandFromKeyEvent } from "./keybindings"
-
-const EDITOR_MAX_WIDTH = 100
-const SIDEBAR_TO_EDITOR_RATIO = 34 / 66
-const MAX_LAYOUT_WIDTH_WITH_SIDEBAR = Math.round(EDITOR_MAX_WIDTH * (1 + SIDEBAR_TO_EDITOR_RATIO))
+import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
 
 function formatTitle(path: string | null): string {
   if (!path) {
@@ -93,10 +90,10 @@ export function App() {
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
-  const contentMaxWidth = state.sidebarVisible ? MAX_LAYOUT_WIDTH_WITH_SIDEBAR : EDITOR_MAX_WIDTH
+  const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
 
   return (
-    <box flexDirection="column" width="100%" height="100%" backgroundColor="#0f1318" padding={1}>
+    <box flexDirection="column" width="100%" height="100%" backgroundColor={uiColors.appBackground} padding={uiLayout.appPadding}>
       <box
         flexDirection="row"
         flexGrow={1}
@@ -104,7 +101,7 @@ export function App() {
         maxWidth={contentMaxWidth}
         alignSelf="center"
         justifyContent="flex-start"
-        gap={state.sidebarVisible ? 1 : 0}
+        gap={state.sidebarVisible ? uiLayout.rowGap : 0}
       >
         <EditorPane
           sidebarVisible={state.sidebarVisible}
@@ -132,13 +129,13 @@ export function App() {
         maxWidth={contentMaxWidth}
         alignSelf="center"
         justifyContent="flex-start"
-        gap={state.sidebarVisible ? 1 : 0}
-        marginTop={1}
+        gap={state.sidebarVisible ? uiLayout.rowGap : 0}
+        marginTop={uiLayout.statusMarginTop}
       >
-        <box width={state.sidebarVisible ? "66%" : "100%"} marginLeft={1} marginRight={1}>
+        <box width={state.sidebarVisible ? uiLayout.editorWidthPercent : "100%"} marginLeft={uiLayout.panelOuterMarginX} marginRight={uiLayout.panelOuterMarginX}>
           <StatusBar path={state.document.path} isDirty={state.document.isDirty} />
         </box>
-        {state.sidebarVisible ? <box width="34%" /> : null}
+        {state.sidebarVisible ? <box width={uiLayout.sidebarWidthPercent} /> : null}
       </box>
 
       {unsavedChangesModal ? (

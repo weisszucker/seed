@@ -1,4 +1,5 @@
 import type { AppEvent, FileNode } from "../../core/types"
+import { uiColors } from "../../theme"
 
 type TreeProps = {
   nodes: FileNode[]
@@ -29,7 +30,7 @@ export function TreeNodes({ nodes, expandedDirs, selectedPath, depth, disabled, 
                 dispatch({ type: "REQUEST_OPEN_FILE", path: node.path })
               }}
             >
-              <text fg={disabled ? "#7c818a" : isSelected ? "#e2bf88" : "#c3c9d2"}>
+              <text fg={disabled ? uiColors.treeDisabled : isSelected ? uiColors.accent : uiColors.treeDefault}>
                 {" ".repeat(depth * 2)}
                 {node.isDirectory ? (isExpanded ? "[-] " : "[+] ") : "    "}
                 {node.name}

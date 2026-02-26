@@ -1,4 +1,5 @@
 import type { TextareaRenderable } from "@opentui/core"
+import { uiColors, uiLayout } from "../../theme"
 
 type EditorPaneProps = {
   sidebarVisible: boolean
@@ -12,9 +13,18 @@ type EditorPaneProps = {
 
 export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, locked, onTextChanged }: EditorPaneProps) {
   return (
-    <box width={sidebarVisible ? "66%" : "100%"} flexDirection="column" gap={1} paddingX={2} paddingY={1} marginLeft={1} marginRight={1} backgroundColor="#1b1f26">
+    <box
+      width={sidebarVisible ? uiLayout.editorWidthPercent : "100%"}
+      flexDirection="column"
+      gap={uiLayout.rowGap}
+      paddingX={uiLayout.panelPaddingX}
+      paddingY={uiLayout.panelPaddingY}
+      marginLeft={uiLayout.panelOuterMarginX}
+      marginRight={uiLayout.panelOuterMarginX}
+      backgroundColor={uiColors.panelBackground}
+    >
       <box height={1} flexShrink={0}>
-        <text fg="#acc8de">{title}</text>
+        <text fg={uiColors.editorTitle}>{title}</text>
       </box>
       <box flexGrow={1} minHeight={1}>
         <textarea
@@ -28,9 +38,9 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
           placeholder="Start typing markdown..."
           flexGrow={1}
           focused={!locked}
-          backgroundColor="#1b1f26"
-          focusedBackgroundColor="#1b1f26"
-          textColor="#d7dbe0"
+          backgroundColor={uiColors.panelBackground}
+          focusedBackgroundColor={uiColors.panelBackground}
+          textColor={uiColors.textPrimary}
         />
       </box>
     </box>
