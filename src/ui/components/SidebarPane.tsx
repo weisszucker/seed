@@ -20,8 +20,8 @@ export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath
 
   const rootTitle = basename(cwd) || cwd || "."
   return (
-    <box width="34%" flexDirection="column" padding={1} backgroundColor="#111111">
-      <text fg="#8fbc8f">{rootTitle}</text>
+    <box width="34%" flexDirection="column" padding={1} backgroundColor="#1b1f26">
+      <text fg="#9dbb9d">{rootTitle}</text>
       <scrollbox flexGrow={1} marginTop={1}>
         <TreeNodes
           nodes={fileTree}

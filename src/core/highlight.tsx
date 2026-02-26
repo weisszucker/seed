@@ -13,29 +13,29 @@ function parseInline(line: string): Segment[] {
 
   while ((match = regex.exec(line)) !== null) {
     if (match.index > index) {
-      segments.push({ text: line.slice(index, match.index), color: "#d4d4d4" })
+      segments.push({ text: line.slice(index, match.index), color: "#c9ced5" })
     }
 
     const token = match[0]
     if (token.startsWith("`")) {
-      segments.push({ text: token, color: "#d7ba7d" })
+      segments.push({ text: token, color: "#cfb381" })
     } else if (token.startsWith("[")) {
-      segments.push({ text: token, color: "#4fc1ff" })
+      segments.push({ text: token, color: "#84b8d9" })
     } else if (token.startsWith("**")) {
-      segments.push({ text: token, color: "#ffd580" })
+      segments.push({ text: token, color: "#e2bf88" })
     } else {
-      segments.push({ text: token, color: "#c586c0" })
+      segments.push({ text: token, color: "#b99bbf" })
     }
 
     index = regex.lastIndex
   }
 
   if (index < line.length) {
-    segments.push({ text: line.slice(index), color: "#d4d4d4" })
+    segments.push({ text: line.slice(index), color: "#c9ced5" })
   }
 
   if (segments.length === 0) {
-    return [{ text: "", color: "#d4d4d4" }]
+    return [{ text: "", color: "#c9ced5" }]
   }
 
   return segments
@@ -43,23 +43,23 @@ function parseInline(line: string): Segment[] {
 
 export function getSimpleLineSegments(line: string, inCodeBlock: boolean): Segment[] {
   if (line.trimStart().startsWith("```")) {
-    return [{ text: line, color: "#569cd6" }]
+    return [{ text: line, color: "#7aa8cc" }]
   }
 
   if (inCodeBlock) {
-    return [{ text: line, color: "#9cdcfe" }]
+    return [{ text: line, color: "#abc6db" }]
   }
 
   if (/^#{1,6}\s/.test(line)) {
-    return [{ text: line, color: "#4ec9b0" }]
+    return [{ text: line, color: "#88c0aa" }]
   }
 
   if (/^>\s/.test(line)) {
-    return [{ text: line, color: "#6a9955" }]
+    return [{ text: line, color: "#95b086" }]
   }
 
   if (/^(\s*[-*+]\s|\s*\d+\.\s)/.test(line)) {
-    return [{ text: line, color: "#b5cea8" }]
+    return [{ text: line, color: "#b3c5a6" }]
   }
 
   return parseInline(line)

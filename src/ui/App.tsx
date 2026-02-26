@@ -96,7 +96,7 @@ export function App() {
   const contentMaxWidth = state.sidebarVisible ? MAX_LAYOUT_WIDTH_WITH_SIDEBAR : EDITOR_MAX_WIDTH
 
   return (
-    <box flexDirection="column" width="100%" height="100%" backgroundColor="#06080d" padding={1}>
+    <box flexDirection="column" width="100%" height="100%" backgroundColor="#0f1318" padding={1}>
       <box
         flexDirection="row"
         flexGrow={1}

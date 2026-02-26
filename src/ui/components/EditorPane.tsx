@@ -12,9 +12,9 @@ type EditorPaneProps = {
 
 export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, locked, onTextChanged }: EditorPaneProps) {
   return (
-    <box width={sidebarVisible ? "66%" : "100%"} flexDirection="column" gap={1} paddingX={2} paddingY={1} marginLeft={1} marginRight={1} backgroundColor="#111111">
+    <box width={sidebarVisible ? "66%" : "100%"} flexDirection="column" gap={1} paddingX={2} paddingY={1} marginLeft={1} marginRight={1} backgroundColor="#1b1f26">
       <box height={1} flexShrink={0}>
-        <text fg="#9cdcfe">{title}</text>
+        <text fg="#acc8de">{title}</text>
       </box>
       <box flexGrow={1} minHeight={1}>
         <textarea
@@ -28,9 +28,9 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
           placeholder="Start typing markdown..."
           flexGrow={1}
           focused={!locked}
-          backgroundColor="#111111"
-          focusedBackgroundColor="#111111"
-          textColor="#f0f0f0"
+          backgroundColor="#1b1f26"
+          focusedBackgroundColor="#1b1f26"
+          textColor="#d7dbe0"
         />
       </box>
     </box>

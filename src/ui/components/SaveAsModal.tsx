@@ -11,19 +11,19 @@ export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: Sav
       <box
         width={56}
         border
-        borderColor="#cd853f"
+        borderColor="#bb8f66"
         paddingLeft={1}
         paddingRight={1}
         paddingBottom={0}
         paddingTop={0}
-        backgroundColor="#1f1f1f"
+        backgroundColor="#252932"
         flexDirection="column"
       >
         <box flexDirection="row" alignItems="center">
-          <text fg="#ffd580">Save As</text>
+          <text fg="#e2bf88">Save As</text>
           <box flexGrow={1} />
           <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
-            <text fg="#aaaaaa">esc</text>
+            <text fg="#9ca2ab">esc</text>
           </box>
         </box>
 
@@ -34,8 +34,8 @@ export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: Sav
           onSubmit={onSubmit}
           focused
           placeholder="Enter file path"
-          backgroundColor="#2f2a1a"
-          textColor="#f0f0f0"
+          backgroundColor="#353024"
+          textColor="#d7dbe0"
           marginTop={2}
         />
       </box>

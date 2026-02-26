@@ -29,7 +29,7 @@ export function TreeNodes({ nodes, expandedDirs, selectedPath, depth, disabled, 
                 dispatch({ type: "REQUEST_OPEN_FILE", path: node.path })
               }}
             >
-              <text fg={disabled ? "#666666" : isSelected ? "#ffd580" : "#d4d4d4"}>
+              <text fg={disabled ? "#7c818a" : isSelected ? "#e2bf88" : "#c3c9d2"}>
                 {" ".repeat(depth * 2)}
                 {node.isDirectory ? (isExpanded ? "[-] " : "[+] ") : "    "}
                 {node.name}
