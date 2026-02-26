@@ -30,6 +30,16 @@ Prompt is gating: pending actions do not execute until the prompt decision is ma
 
 The sidebar can be toggled on and off. When it's toggled off, the editor should be centered horizontally.
 
+## Layout
+
+The editor content width should be capped at around 100 characters.
+
+The sidebar should keep the current width ratio relative to editor (about 34:66) when visible.
+
+When the display is wider than the content cap, keep the content centered and expand horizontal margins on both sides.
+
+The status line should align to the editor column (not the full terminal width), including when sidebar is visible.
+
 ## Shortcuts
 
 ctrl-q for quitting.
