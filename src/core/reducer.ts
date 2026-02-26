@@ -129,6 +129,15 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         ],
       }
 
+    case "REQUEST_REFRESH_FILE_TREE":
+      return {
+        state: {
+          ...state,
+          statusMessage: `Refreshing ${state.cwd}`,
+        },
+        effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
+      }
+
     case "CONFIG_LOADED":
       return {
         state: {

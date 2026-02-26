@@ -58,6 +58,7 @@ export type AppEffect =
 
 export type AppEvent =
   | { type: "APP_STARTED" }
+  | { type: "REQUEST_REFRESH_FILE_TREE" }
   | { type: "CONFIG_LOADED"; keybindings: Partial<KeybindingMap> }
   | { type: "CONFIG_LOAD_FAILED"; message: string }
   | { type: "FILE_TREE_LOADED"; nodes: FileNode[] }
