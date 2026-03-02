@@ -3,7 +3,7 @@ import { useKeyboard, useRenderer } from "@opentui/react"
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import { basename } from "node:path"
 
-import { SeedRuntime } from "../app/runtime"
+import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
 import { EditorPane } from "./components/EditorPane"
 import { SaveAsModal } from "./components/SaveAsModal"
@@ -18,6 +18,11 @@ function formatTitle(path: string | null): string {
     return "untitled"
   }
   return basename(path)
+}
+
+type AppProps = {
+  cwd?: string
+  effectRunner?: RuntimeEffectRunner
 }
 
 function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => void, key: KeyEvent): void {
@@ -65,12 +70,12 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
   dispatch(commandMap[command])
 }
 
-export function App() {
+export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const renderer = useRenderer()
   const runtimeRef = useRef<SeedRuntime | null>(null)
 
   if (!runtimeRef.current) {
-    runtimeRef.current = new SeedRuntime(process.cwd(), renderer)
+    runtimeRef.current = new SeedRuntime(cwd, renderer, effectRunner)
   }
 
   const runtime = runtimeRef.current
