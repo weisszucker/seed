@@ -5,6 +5,7 @@ import { createInitialState, type AppEvent, type EditorState } from "../core/typ
 import { runEffect } from "../effects/runner"
 
 type Listener = (state: EditorState) => void
+export type RuntimeEffectRunner = typeof runEffect
 
 export class SeedRuntime {
   private state: EditorState
@@ -18,6 +19,7 @@ export class SeedRuntime {
   constructor(
     cwd: string,
     private readonly renderer: CliRenderer,
+    private readonly effectRunner: RuntimeEffectRunner = runEffect,
   ) {
     this.state = createInitialState(cwd)
   }
@@ -59,7 +61,7 @@ export class SeedRuntime {
       this.publish()
 
       for (const effect of result.effects) {
-        const events = await runEffect(effect, this.renderer)
+        const events = await this.effectRunner(effect, this.renderer)
         this.queue.push(...events)
       }
     }
