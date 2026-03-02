@@ -1,12 +1,3 @@
-import { createCliRenderer } from "@opentui/core"
-import { createRoot } from "@opentui/react"
+import { startSeedApp } from "./app/start"
 
-import { App } from "./ui/App"
-
-const renderer = await createCliRenderer({
-  exitOnCtrlC: false,
-  autoFocus: true,
-  useMouse: true,
-})
-
-createRoot(renderer).render(<App />)
+await startSeedApp()

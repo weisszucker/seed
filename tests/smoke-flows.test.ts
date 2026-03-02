@@ -30,6 +30,28 @@ describe("smoke flows", () => {
     expect(saved.state.document.isDirty).toBeFalse()
   })
 
+  test("untitled save flow resolves relative save path against cwd", () => {
+    const initial = createInitialState("/tmp/work")
+    const changed = reduceEvent(initial, { type: "EDITOR_TEXT_CHANGED", text: "hello" }).state
+
+    const saveRequest = reduceEvent(changed, { type: "REQUEST_SAVE" })
+    expect(saveRequest.state.modal?.kind).toBe("save_as")
+
+    const withPath = reduceEvent(saveRequest.state, {
+      type: "SAVE_AS_PATH_UPDATED",
+      path: "hello.md",
+    }).state
+
+    const submitted = reduceEvent(withPath, { type: "SAVE_AS_SUBMITTED" })
+    expect(submitted.effects).toEqual([
+      {
+        type: "SAVE_FILE",
+        path: "/tmp/work/hello.md",
+        text: "hello",
+      },
+    ])
+  })
+
   test("dirty new-file request is gated by unsaved prompt", () => {
     const initial = createInitialState("/tmp")
     const changed = reduceEvent(initial, { type: "EDITOR_TEXT_CHANGED", text: "draft" }).state

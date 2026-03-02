@@ -1,4 +1,5 @@
 import type { AppEffect, AppEvent, EditorState, ModalState, PendingAction } from "./types"
+import { isAbsolute, resolve } from "node:path"
 
 type ReduceResult = {
   state: EditorState
@@ -112,6 +113,13 @@ function toSaveAsModal(currentPath: string | null): ModalState {
     kind: "save_as",
     pathInput: currentPath ?? "",
   }
+}
+
+function resolveDocumentPath(cwd: string, inputPath: string): string {
+  if (isAbsolute(inputPath)) {
+    return inputPath
+  }
+  return resolve(cwd, inputPath)
 }
 
 export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
@@ -390,15 +398,17 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         }
       }
 
+      const resolvedPath = resolveDocumentPath(state.cwd, normalized)
+
       return {
         state: {
           ...state,
-          statusMessage: `Saving ${normalized}`,
+          statusMessage: `Saving ${resolvedPath}`,
         },
         effects: [
           {
             type: "SAVE_FILE",
-            path: normalized,
+            path: resolvedPath,
             text: state.document.text,
           },
         ],
