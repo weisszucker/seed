@@ -48,3 +48,20 @@ ctrl-n for opening a new untitled file.
 ctrl-l for toggling the sidebar.
 
 The shortcuts can be controlled by a config file "setting.json".
+
+## Cloud Mode
+
+Seed supports a cloud mode for syncing files with GitHub.
+
+Run `seed cloud <owner>/<repo>` to open a cloud workspace.
+If the GitHub repo does not exist, Seed creates it (private).
+The local repo is stored at `~/.seed/<owner>/<repo>`.
+
+On first use, Seed asks for GitHub authentication with repo create/read/write access, and credentials must be stored by OS credential helpers (not plaintext files).
+Later runs reuse saved credentials unless authentication fails.
+
+When cloud mode starts, Seed syncs local state to `origin/main` before opening the editor.
+When Seed exits normally, it checks for changes, creates a commit (date/timestamp-based message), and pushes to `origin/main`.
+
+If push fails, Seed should support retry.
+On exit-without-save during retry flow, local unpushed changes are discarded and local state is reset to `origin/main`.

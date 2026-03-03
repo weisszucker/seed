@@ -132,7 +132,7 @@ Errors, warnings, confirmations, and progress must follow a unified model.
 
 Similar scenarios must produce similar messages and visual treatment.
 
-No ad-hoc logging or messaging from random code paths.
+No ad-hoc logging or messaging to the console from random code paths.
 
 4.3 A Design System Exists Even in a CLI
 
@@ -228,29 +228,3 @@ What invariant does this preserve?
 How is this behavior tested?
 
 If these cannot be answered, the change is invalid.
-
-8. Definition of “Correctness”
-
-The editor is considered correct if:
-
-Core behavior is deterministic and test-covered.
-
-UI reflects state accurately and consistently.
-
-Similar user actions produce similar feedback.
-
-Features can be modified or removed without widespread breakage.
-
-Final Rule
-
-When in doubt, move logic toward the core, isolate effects, and make state explicit.
-
-This rule overrides all others.
-
-If you want, I can also:
-
-convert this into a shorter “AI instruction prompt” version, or
-
-add a checklist the agent must pass before submitting code, or
-
-tailor this specifically to text editors vs code editors (search, syntax, etc.).
