@@ -3,7 +3,7 @@ import type { CliRenderer } from "@opentui/core"
 import type { AppEffect, AppEvent } from "../core/types"
 import { logDiagnosticError } from "../diagnostics/logging"
 import { loadUserKeybindings } from "./config"
-import { loadFileTree, readTextFile, writeTextFile } from "./fs"
+import { deletePath, loadFileTree, readTextFile, writeTextFile } from "./fs"
 
 export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promise<AppEvent[]> {
   try {
@@ -28,6 +28,11 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
         return [{ type: "FILE_SAVED", path: effect.path }]
       }
 
+      case "DELETE_PATH": {
+        await deletePath(effect.path, effect.cwd)
+        return [{ type: "PATH_DELETED", path: effect.path }]
+      }
+
       case "EXIT_APP":
         renderer.destroy()
         return []
@@ -38,7 +43,7 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
   } catch (error) {
     logDiagnosticError("effects.run_failed", error, {
       effect: effect.type,
-      path: effect.type === "LOAD_FILE" || effect.type === "SAVE_FILE" ? effect.path : undefined,
+      path: effect.type === "LOAD_FILE" || effect.type === "SAVE_FILE" || effect.type === "DELETE_PATH" ? effect.path : undefined,
       root_path: effect.type === "LOAD_FILE_TREE" ? effect.rootPath : undefined,
     })
     const message = error instanceof Error ? error.message : "Unknown error"
@@ -54,6 +59,9 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
     }
     if (effect.type === "SAVE_FILE") {
       return [{ type: "FILE_SAVE_FAILED", message: `Failed to save file: ${message}` }]
+    }
+    if (effect.type === "DELETE_PATH") {
+      return [{ type: "PATH_DELETE_FAILED", path: effect.path, message: `Failed to delete path: ${message}` }]
     }
 
     return []

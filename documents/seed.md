@@ -30,6 +30,15 @@ Prompt is gating: pending actions do not execute until the prompt decision is ma
 
 The sidebar can be toggled on and off. When it's toggled off, the editor should be centered horizontally.
 
+Focus can toggle between the editor and the sidebar.
+
+When sidebar is focused:
+- `Up`/`Down` moves highlight in the visible file tree.
+- `Enter` opens a file, or collapse/uncollapse a folder.
+- `Del` asks confirmation before deleting selected file/folder.
+
+Delete prompt options are `Delete` and `Cancel`. Press `Esc` to cancel.
+
 ## Layout
 
 The editor content width should be capped at around 100 characters.
@@ -46,6 +55,7 @@ ctrl-q for quitting.
 ctrl-s/ctrl-shift-s for saving/saving to.
 ctrl-n for opening a new untitled file.
 ctrl-l for toggling the sidebar.
+ctrl-t for toggling focus between editor and sidebar.
 
 The shortcuts can be controlled by a config file "setting.json".
 

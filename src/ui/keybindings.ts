@@ -23,17 +23,25 @@ function parseBinding(binding: string): ParsedBinding {
   }
 }
 
+function toNormalizedEvent(keyEvent: KeyEvent): ParsedBinding {
+  const rawName = keyEvent.name ?? ""
+  const inferredShift = rawName.length === 1 && rawName !== rawName.toLowerCase()
+  return {
+    ctrl: Boolean(keyEvent.ctrl),
+    shift: Boolean(keyEvent.shift) || inferredShift,
+    meta: Boolean(keyEvent.meta) || Boolean((keyEvent as { option?: boolean }).option),
+    key: rawName.toLowerCase(),
+  }
+}
+
 export function matchesBinding(binding: string, keyEvent: KeyEvent): boolean {
   const parsed = parseBinding(binding)
-  const eventKey = keyEvent.name.toLowerCase()
-  const eventCtrl = Boolean(keyEvent.ctrl)
-  const eventShift = Boolean(keyEvent.shift)
-  const eventMeta = Boolean(keyEvent.meta)
+  const normalizedEvent = toNormalizedEvent(keyEvent)
   return (
-    parsed.key === eventKey &&
-    parsed.ctrl === eventCtrl &&
-    parsed.shift === eventShift &&
-    parsed.meta === eventMeta
+    parsed.key === normalizedEvent.key &&
+    parsed.ctrl === normalizedEvent.ctrl &&
+    parsed.shift === normalizedEvent.shift &&
+    parsed.meta === normalizedEvent.meta
   )
 }
 

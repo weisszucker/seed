@@ -18,6 +18,7 @@ export const uiLayout = {
 export const uiColors = {
   appBackground: "#0f1318",
   panelBackground: "#1b1f26",
+  panelFocusedBackground: "#202530",
   textPrimary: "#d7dbe0",
   textMuted: "#9ca2ab",
   textSubtle: "#bcc2ca",
@@ -25,6 +26,8 @@ export const uiColors = {
   sidebarTitle: "#9dbb9d",
   treeDefault: "#c3c9d2",
   treeDisabled: "#7c818a",
+  treeCursorRow: "#2a2f3a",
+  treeSelectedFile: "#9fbcd7",
   accent: "#e2bf88",
   danger: "#cc8383",
   modalBackground: "#252932",

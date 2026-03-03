@@ -18,4 +18,34 @@ describe("keybinding matching", () => {
 
     expect(command).toBe("saveAs")
   })
+
+  test("matches ctrl+t for focus toggle", () => {
+    const command = commandFromKeyEvent(DEFAULT_KEYBINDINGS, {
+      name: "t",
+      ctrl: true,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(command).toBe("toggleFocusTarget")
+  })
+
+  test("infers shift from uppercase key name for ctrl+shift+s", () => {
+    const command = commandFromKeyEvent(DEFAULT_KEYBINDINGS, {
+      name: "S",
+      ctrl: true,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(command).toBe("saveAs")
+  })
 })

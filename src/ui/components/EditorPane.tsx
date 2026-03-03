@@ -7,11 +7,11 @@ type EditorPaneProps = {
   documentPath: string | null
   text: string
   textareaRef: { current: TextareaRenderable | null }
-  locked: boolean
+  focused: boolean
   onTextChanged: (text: string) => void
 }
 
-export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, locked, onTextChanged }: EditorPaneProps) {
+export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, focused, onTextChanged }: EditorPaneProps) {
   return (
     <box
       width={sidebarVisible ? uiLayout.editorWidthPercent : "100%"}
@@ -21,10 +21,10 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
       paddingY={uiLayout.panelPaddingY}
       marginLeft={uiLayout.panelOuterMarginX}
       marginRight={uiLayout.panelOuterMarginX}
-      backgroundColor={uiColors.panelBackground}
+      backgroundColor={focused ? uiColors.panelFocusedBackground : uiColors.panelBackground}
     >
       <box height={1} flexShrink={0}>
-        <text fg={uiColors.editorTitle}>{title}</text>
+        <text fg={focused ? uiColors.accent : uiColors.editorTitle}>{title}</text>
       </box>
       <box flexGrow={1} minHeight={1}>
         <textarea
@@ -37,7 +37,7 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
           }}
           placeholder="Start typing markdown..."
           flexGrow={1}
-          focused={!locked}
+          focused={focused}
           backgroundColor={uiColors.panelBackground}
           focusedBackgroundColor={uiColors.panelBackground}
           textColor={uiColors.textPrimary}

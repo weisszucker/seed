@@ -1,9 +1,16 @@
-import type { AppEffect, AppEvent, EditorState, ModalState, PendingAction } from "./types"
-import { isAbsolute, resolve } from "node:path"
+import { basename, isAbsolute, relative, resolve, sep } from "node:path"
+
+import type { AppEffect, AppEvent, EditorState, FileNode, ModalState, PendingAction } from "./types"
 
 type ReduceResult = {
   state: EditorState
   effects: AppEffect[]
+}
+
+type VisibleTreeNode = {
+  path: string
+  name: string
+  isDirectory: boolean
 }
 
 function withDocumentText(state: EditorState, text: string): EditorState {
@@ -16,6 +23,129 @@ function withDocumentText(state: EditorState, text: string): EditorState {
       isDirty,
     },
   }
+}
+
+function flattenVisibleNodes(nodes: FileNode[], expandedDirs: Record<string, boolean>): VisibleTreeNode[] {
+  const visible: VisibleTreeNode[] = []
+
+  function visit(node: FileNode): void {
+    visible.push({
+      path: node.path,
+      name: node.name,
+      isDirectory: node.isDirectory,
+    })
+    if (node.isDirectory && (expandedDirs[node.path] ?? false)) {
+      for (const child of node.children) {
+        visit(child)
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    visit(node)
+  }
+
+  return visible
+}
+
+function isPathOrDescendant(path: string, parentPath: string): boolean {
+  return path === parentPath || path.startsWith(`${parentPath}${sep}`)
+}
+
+function isPathWithinRoot(path: string, root: string): boolean {
+  const rel = relative(root, path)
+  return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel))
+}
+
+function resolveSidebarCursorPath(
+  nodes: FileNode[],
+  expandedDirs: Record<string, boolean>,
+  cursorPath: string | null,
+  selectedPath: string | null,
+): string | null {
+  const visible = flattenVisibleNodes(nodes, expandedDirs)
+  if (visible.length === 0) {
+    return null
+  }
+
+  if (cursorPath && visible.some((node) => node.path === cursorPath)) {
+    return cursorPath
+  }
+
+  if (selectedPath && visible.some((node) => node.path === selectedPath)) {
+    return selectedPath
+  }
+
+  return visible[0].path
+}
+
+function currentSidebarNode(state: EditorState): VisibleTreeNode | null {
+  const visible = flattenVisibleNodes(state.fileTree, state.expandedDirs)
+  if (visible.length === 0) {
+    return null
+  }
+  const cursorPath = resolveSidebarCursorPath(
+    state.fileTree,
+    state.expandedDirs,
+    state.sidebarCursorPath,
+    state.selectedPath,
+  )
+  if (!cursorPath) {
+    return null
+  }
+  return visible.find((node) => node.path === cursorPath) ?? null
+}
+
+function moveSidebarCursor(state: EditorState, delta: -1 | 1): EditorState {
+  const visible = flattenVisibleNodes(state.fileTree, state.expandedDirs)
+  if (visible.length === 0) {
+    return state
+  }
+
+  const cursorPath = resolveSidebarCursorPath(
+    state.fileTree,
+    state.expandedDirs,
+    state.sidebarCursorPath,
+    state.selectedPath,
+  )
+  const currentIndex = Math.max(
+    0,
+    visible.findIndex((node) => node.path === cursorPath),
+  )
+  const nextIndex = Math.min(visible.length - 1, Math.max(0, currentIndex + delta))
+  return {
+    ...state,
+    sidebarCursorPath: visible[nextIndex].path,
+  }
+}
+
+function toggleDirectory(state: EditorState, path: string): EditorState {
+  const isExpanded = state.expandedDirs[path] ?? false
+  const expandedDirs = {
+    ...state.expandedDirs,
+    [path]: !isExpanded,
+  }
+
+  let sidebarCursorPath = state.sidebarCursorPath
+  if (isExpanded && sidebarCursorPath && isPathOrDescendant(sidebarCursorPath, path) && sidebarCursorPath !== path) {
+    sidebarCursorPath = path
+  }
+
+  return {
+    ...state,
+    expandedDirs,
+    sidebarCursorPath: resolveSidebarCursorPath(state.fileTree, expandedDirs, sidebarCursorPath, state.selectedPath),
+  }
+}
+
+function clearExpandedDirsForDeletedPath(expandedDirs: Record<string, boolean>, deletedPath: string): Record<string, boolean> {
+  const next: Record<string, boolean> = {}
+  for (const [path, isExpanded] of Object.entries(expandedDirs)) {
+    if (!isPathOrDescendant(path, deletedPath)) {
+      next[path] = isExpanded
+    }
+  }
+  return next
 }
 
 function executePendingAction(state: EditorState, action: PendingAction): ReduceResult {
@@ -92,6 +222,9 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "PROMPT_CHOOSE_DONT_SAVE",
     "PROMPT_SELECT_PREV",
     "PROMPT_SELECT_NEXT",
+    "DELETE_PROMPT_SELECT_PREV",
+    "DELETE_PROMPT_SELECT_NEXT",
+    "DELETE_PROMPT_CONFIRM",
     "PROMPT_CANCEL",
     "SAVE_AS_PATH_UPDATED",
     "SAVE_AS_SUBMITTED",
@@ -103,6 +236,8 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "CONFIG_LOAD_FAILED",
     "FILE_TREE_LOADED",
     "FILE_TREE_LOAD_FAILED",
+    "PATH_DELETED",
+    "PATH_DELETE_FAILED",
   ])
 
   return !allowed.has(event.type)
@@ -174,6 +309,12 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         state: {
           ...state,
           fileTree: event.nodes,
+          sidebarCursorPath: resolveSidebarCursorPath(
+            event.nodes,
+            state.expandedDirs,
+            state.sidebarCursorPath,
+            state.selectedPath,
+          ),
           statusMessage: "File tree loaded",
         },
         effects: [],
@@ -188,23 +329,139 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         effects: [],
       }
 
-    case "TOGGLE_SIDEBAR":
+    case "TOGGLE_SIDEBAR": {
+      const sidebarVisible = !state.sidebarVisible
       return {
         state: {
           ...state,
-          sidebarVisible: !state.sidebarVisible,
+          sidebarVisible,
+          focusTarget: sidebarVisible ? state.focusTarget : "editor",
+        },
+        effects: [],
+      }
+    }
+
+    case "TOGGLE_FOCUS_TARGET": {
+      if (!state.sidebarVisible) {
+        return {
+          state: {
+            ...state,
+            focusTarget: "editor",
+            statusMessage: "Sidebar hidden",
+          },
+          effects: [],
+        }
+      }
+
+      if (state.focusTarget === "editor") {
+        return {
+          state: {
+            ...state,
+            focusTarget: "sidebar",
+            sidebarCursorPath: resolveSidebarCursorPath(
+              state.fileTree,
+              state.expandedDirs,
+              state.sidebarCursorPath,
+              state.selectedPath,
+            ),
+            statusMessage: "Sidebar focused",
+          },
+          effects: [],
+        }
+      }
+
+      return {
+        state: {
+          ...state,
+          focusTarget: "editor",
+          statusMessage: "Editor focused",
+        },
+        effects: [],
+      }
+    }
+
+    case "TOGGLE_DIRECTORY":
+      return {
+        state: toggleDirectory(state, event.path),
+        effects: [],
+      }
+
+    case "SIDEBAR_SET_CURSOR":
+      return {
+        state: {
+          ...state,
+          sidebarCursorPath: event.path,
         },
         effects: [],
       }
 
-    case "TOGGLE_DIRECTORY": {
+    case "SIDEBAR_MOVE_UP":
+      return {
+        state: moveSidebarCursor(state, -1),
+        effects: [],
+      }
+
+    case "SIDEBAR_MOVE_DOWN":
+      return {
+        state: moveSidebarCursor(state, 1),
+        effects: [],
+      }
+
+    case "SIDEBAR_ACTIVATE": {
+      const node = currentSidebarNode(state)
+      if (!node) {
+        return { state, effects: [] }
+      }
+
+      if (node.isDirectory) {
+        return {
+          state: toggleDirectory(
+            {
+              ...state,
+              sidebarCursorPath: node.path,
+            },
+            node.path,
+          ),
+          effects: [],
+        }
+      }
+
+      return requestRiskyAction(
+        {
+          ...state,
+          sidebarCursorPath: node.path,
+        },
+        { type: "open_file", path: node.path },
+      )
+    }
+
+    case "SIDEBAR_REQUEST_DELETE": {
+      const node = currentSidebarNode(state)
+      if (!node) {
+        return { state, effects: [] }
+      }
+
+      if (!isPathWithinRoot(node.path, state.cwd)) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Cannot delete outside current folder",
+          },
+          effects: [],
+        }
+      }
+
       return {
         state: {
           ...state,
-          expandedDirs: {
-            ...state.expandedDirs,
-            [event.path]: !state.expandedDirs[event.path],
+          modal: {
+            kind: "delete_confirm",
+            targetPath: node.path,
+            targetName: basename(node.path),
+            targetType: node.isDirectory ? "folder" : "file",
+            selectedOption: "cancel",
           },
+          statusMessage: `Confirm delete ${node.path}`,
         },
         effects: [],
       }
@@ -217,7 +474,13 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       }
 
     case "REQUEST_OPEN_FILE":
-      return requestRiskyAction(state, { type: "open_file", path: event.path })
+      return requestRiskyAction(
+        {
+          ...state,
+          sidebarCursorPath: event.path,
+        },
+        { type: "open_file", path: event.path },
+      )
 
     case "REQUEST_NEW_FILE":
       return requestRiskyAction(state, { type: "new_file" })
@@ -229,23 +492,23 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       if (!state.document.isDirty && state.document.path) {
         return {
           state: {
-          ...state,
-          statusMessage: "No changes to save",
-          postSaveAction: null,
-        },
-        effects: [],
-      }
+            ...state,
+            statusMessage: "No changes to save",
+            postSaveAction: null,
+          },
+          effects: [],
+        }
       }
 
       if (!state.document.path) {
         return {
           state: {
-          ...state,
-          modal: toSaveAsModal(state.document.path),
-          postSaveAction: null,
-          statusMessage: "Enter path to save",
-        },
-        effects: [],
+            ...state,
+            modal: toSaveAsModal(state.document.path),
+            postSaveAction: null,
+            statusMessage: "Enter path to save",
+          },
+          effects: [],
         }
       }
 
@@ -318,6 +581,59 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           },
         },
         effects: [],
+      }
+    }
+
+    case "DELETE_PROMPT_SELECT_PREV": {
+      if (!state.modal || state.modal.kind !== "delete_confirm") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            selectedOption: state.modal.selectedOption === "cancel" ? "delete" : "cancel",
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DELETE_PROMPT_SELECT_NEXT": {
+      if (!state.modal || state.modal.kind !== "delete_confirm") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            selectedOption: state.modal.selectedOption === "cancel" ? "delete" : "cancel",
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DELETE_PROMPT_CONFIRM": {
+      if (!state.modal || state.modal.kind !== "delete_confirm") {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: null,
+          statusMessage: `Deleting ${state.modal.targetPath}`,
+        },
+        effects: [
+          {
+            type: "DELETE_PATH",
+            path: state.modal.targetPath,
+            cwd: state.cwd,
+          },
+        ],
       }
     }
 
@@ -421,6 +737,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           ...state,
           modal: null,
           selectedPath: event.path,
+          sidebarCursorPath: event.path,
           document: {
             path: event.path,
             text: event.text,
@@ -451,6 +768,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           isDirty: false,
         },
         selectedPath: event.path,
+        sidebarCursorPath: event.path,
         statusMessage: `Saved ${event.path}`,
         modal: null,
         postSaveAction: null,
@@ -467,6 +785,46 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
     }
 
     case "FILE_SAVE_FAILED":
+      return {
+        state: {
+          ...state,
+          statusMessage: event.message,
+        },
+        effects: [],
+      }
+
+    case "PATH_DELETED": {
+      const selectedPath =
+        state.selectedPath && isPathOrDescendant(state.selectedPath, event.path)
+          ? null
+          : state.selectedPath
+
+      const shouldClearDocument =
+        state.document.path !== null && isPathOrDescendant(state.document.path, event.path)
+
+      const nextState: EditorState = {
+        ...state,
+        selectedPath,
+        sidebarCursorPath: null,
+        expandedDirs: clearExpandedDirsForDeletedPath(state.expandedDirs, event.path),
+        document: shouldClearDocument
+          ? {
+              path: null,
+              text: "",
+              savedText: "",
+              isDirty: false,
+            }
+          : state.document,
+        statusMessage: `Deleted ${event.path}`,
+      }
+
+      return {
+        state: nextState,
+        effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
+      }
+    }
+
+    case "PATH_DELETE_FAILED":
       return {
         state: {
           ...state,

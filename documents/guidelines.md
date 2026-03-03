@@ -164,6 +164,18 @@ The UI should be designed in the way so that the user is able to know how to int
 
 Refrain from using border.
 
+4.6 Keyboard focus and sidebar navigation
+
+Rules:
+
+Pane focus must be explicit in state and visible in UI.
+
+Keyboard-only navigation must be supported for sidebar tree items.
+
+Destructive sidebar actions must require a confirmation prompt.
+
+When a confirmation prompt is visible, editor and sidebar operations must be disabled.
+
 5. Side Effects & External Interaction
 5.1 Effects Are Explicit and Isolated
 

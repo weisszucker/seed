@@ -6,6 +6,7 @@ import { basename } from "node:path"
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
 import { EditorPane } from "./components/EditorPane"
+import { DeleteConfirmModal } from "./components/DeleteConfirmModal"
 import { SaveAsModal } from "./components/SaveAsModal"
 import { SidebarPane } from "./components/SidebarPane"
 import { StatusBar } from "./components/StatusBar"
@@ -55,6 +56,45 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
     return
   }
 
+  if (state.modal?.kind === "delete_confirm") {
+    if (key.name === "left" || key.name === "up") {
+      dispatch({ type: "DELETE_PROMPT_SELECT_PREV" })
+      return
+    }
+    if (key.name === "right" || key.name === "down" || key.name === "tab") {
+      dispatch({ type: "DELETE_PROMPT_SELECT_NEXT" })
+      return
+    }
+    if (key.name === "enter" || key.name === "return") {
+      if (state.modal.selectedOption === "delete") {
+        dispatch({ type: "DELETE_PROMPT_CONFIRM" })
+      } else {
+        dispatch({ type: "PROMPT_CANCEL" })
+      }
+      return
+    }
+    return
+  }
+
+  if (state.focusTarget === "sidebar" && state.sidebarVisible) {
+    if (key.name === "up") {
+      dispatch({ type: "SIDEBAR_MOVE_UP" })
+      return
+    }
+    if (key.name === "down") {
+      dispatch({ type: "SIDEBAR_MOVE_DOWN" })
+      return
+    }
+    if (key.name === "enter" || key.name === "return") {
+      dispatch({ type: "SIDEBAR_ACTIVATE" })
+      return
+    }
+    if (key.name === "delete" || key.name === "del" || key.name === "backspace") {
+      dispatch({ type: "SIDEBAR_REQUEST_DELETE" })
+      return
+    }
+  }
+
   const command = commandFromKeyEvent(state.keybindings, key)
   if (!command) {
     return
@@ -66,6 +106,7 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
     saveAs: { type: "REQUEST_SAVE_AS" },
     newFile: { type: "REQUEST_NEW_FILE" },
     toggleSidebar: { type: "TOGGLE_SIDEBAR" },
+    toggleFocusTarget: { type: "TOGGLE_FOCUS_TARGET" },
   }
   dispatch(commandMap[command])
 }
@@ -95,6 +136,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
+  const deleteConfirmModal = state.modal?.kind === "delete_confirm" ? state.modal : null
   const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
 
   return (
@@ -114,7 +156,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           documentPath={state.document.path}
           text={state.document.text}
           textareaRef={textareaRef}
-          locked={locked}
+          focused={!locked && state.focusTarget === "editor"}
           onTextChanged={(text) => runtime.dispatch({ type: "EDITOR_TEXT_CHANGED", text })}
         />
         <SidebarPane
@@ -122,7 +164,9 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           cwd={state.cwd}
           fileTree={state.fileTree}
           expandedDirs={state.expandedDirs}
+          cursorPath={state.sidebarCursorPath}
           selectedPath={state.selectedPath}
+          focused={!locked && state.focusTarget === "sidebar"}
           locked={locked}
           dispatch={(event) => runtime.dispatch(event)}
         />
@@ -157,6 +201,16 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           pathInput={saveAsModal.pathInput}
           onPathChange={(path) => runtime.dispatch({ type: "SAVE_AS_PATH_UPDATED", path })}
           onSubmit={() => runtime.dispatch({ type: "SAVE_AS_SUBMITTED" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
+      ) : null}
+
+      {deleteConfirmModal ? (
+        <DeleteConfirmModal
+          targetName={deleteConfirmModal.targetName}
+          targetType={deleteConfirmModal.targetType}
+          selectedOption={deleteConfirmModal.selectedOption}
+          onConfirm={() => runtime.dispatch({ type: "DELETE_PROMPT_CONFIRM" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}
