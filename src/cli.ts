@@ -1,5 +1,6 @@
 import { startSeedApp } from "./app/start"
 import { runCloudMode } from "./cloud/mode"
+import { logDiagnostic, logDiagnosticError } from "./diagnostics/logging"
 
 export type ParsedCommand =
   | { type: "local" }
@@ -71,24 +72,38 @@ export async function runCli(args: string[], options: CliRunOptions = {}): Promi
   const startCloud = options.startCloud ?? ((owner: string, repo: string) => runCloudMode(owner, repo))
   const writeStdout = options.writeStdout ?? ((message: string) => process.stdout.write(message))
   const writeStderr = options.writeStderr ?? ((message: string) => process.stderr.write(message))
+  let commandContext: Record<string, unknown> = {
+    argv: args.join(" "),
+    mode: "unknown",
+  }
 
   try {
     const command = parseCliArgs(args)
     if (command.type === "help") {
+      commandContext = { ...commandContext, mode: "help" }
       writeStdout(`${usageText()}\n`)
       return
     }
     if (command.type === "local") {
+      commandContext = { ...commandContext, mode: "local" }
       await startLocal()
       return
+    }
+    commandContext = {
+      ...commandContext,
+      mode: "cloud",
+      owner: command.owner,
+      repo: command.repo,
     }
     await startCloud(command.owner, command.repo)
   } catch (error) {
     if (error instanceof CliUsageError) {
+      logDiagnostic("warn", "cli.usage_error", { message: error.message })
       writeStderr(`${error.message}\n`)
       process.exitCode = 1
       return
     }
+    logDiagnosticError("cli.run_failed", error, commandContext)
     const message = error instanceof Error ? error.message : "Unknown failure"
     writeStderr(`${message}\n`)
     process.exitCode = 1

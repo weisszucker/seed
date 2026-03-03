@@ -2,6 +2,7 @@ import type { CredentialStore } from "./credentials"
 import { credentialKeyForOwner } from "./credentials"
 import { GithubDeviceAuthorizationClient, type DeviceAuthorizationClient } from "./device-flow"
 import type { GithubUser } from "./github"
+import { logDiagnostic } from "../diagnostics/logging"
 
 export type AuthSession = {
   token: string
@@ -58,7 +59,7 @@ export class AuthService {
       } catch (error) {
         await this.credentialStore.clear(key)
         const message = error instanceof Error ? error.message : "Authentication failed"
-        console.error(`[seed-cloud] Stored credential rejected: ${message}`)
+        logDiagnostic("warn", "cloud.cached_credential_rejected", { owner, error: message })
       }
     }
 

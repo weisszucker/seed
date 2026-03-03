@@ -185,6 +185,22 @@ Core behavior must be testable without network access.
 
 Failure modes must be handled explicitly and consistently.
 
+5.3 Diagnostics Logging Is Centralized
+
+Rules:
+
+Use one diagnostics logging module. Do not add ad-hoc `console` logs for diagnostics.
+
+Write diagnostics logs to `~/.seed/log`.
+
+Clear the diagnostics log on each app start.
+
+Use structured logs with stable event names and level (`error`, `warn`, `info`, `debug`).
+
+For error logs, include enough non-sensitive context to identify root cause and reproduce.
+
+Never log secrets, tokens, credentials, auth headers, or user document content.
+
 6. Evolution & Maintainability
 6.1 Optimize for Change, Not Speed
 

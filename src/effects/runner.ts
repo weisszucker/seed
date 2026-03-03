@@ -1,6 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 
 import type { AppEffect, AppEvent } from "../core/types"
+import { logDiagnosticError } from "../diagnostics/logging"
 import { loadUserKeybindings } from "./config"
 import { loadFileTree, readTextFile, writeTextFile } from "./fs"
 
@@ -35,6 +36,11 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
         return []
     }
   } catch (error) {
+    logDiagnosticError("effects.run_failed", error, {
+      effect: effect.type,
+      path: effect.type === "LOAD_FILE" || effect.type === "SAVE_FILE" ? effect.path : undefined,
+      root_path: effect.type === "LOAD_FILE_TREE" ? effect.rootPath : undefined,
+    })
     const message = error instanceof Error ? error.message : "Unknown error"
 
     if (effect.type === "LOAD_CONFIG") {

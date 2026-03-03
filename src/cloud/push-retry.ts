@@ -1,4 +1,5 @@
 import type { CommandRunner } from "./command"
+import { logCloudEvent } from "./logging"
 
 export enum RetryDecision {
   RETRY = "RETRY",
@@ -47,21 +48,25 @@ export class PushRetryCoordinator {
     let retryCount = 0
     let lastError: string | null = null
 
+    logCloudEvent("push_attempt_start", { retry_count: retryCount, repo_path: repoPath })
     try {
       await this.runner.run("git", ["-C", repoPath, "push", "origin", "main"])
       return { status: "pushed", retryCount }
     } catch (error) {
       lastError = error instanceof Error ? error.message : "git push failed"
+      logCloudEvent("push_failed", { retry_count: retryCount, repo_path: repoPath, error: lastError }, "error")
     }
 
     while (true) {
       const decision = await this.prompt.askPushFailure(lastError ?? "git push failed")
       if (decision === RetryDecision.EXIT_WITHOUT_SAVE) {
+        logCloudEvent("push_exit_without_save_selected", { retry_count: retryCount, repo_path: repoPath }, "warn")
         await this.discardLocalChanges(repoPath)
         return { status: "discarded", retryCount }
       }
 
       retryCount += 1
+      logCloudEvent("push_retry_requested", { retry_count: retryCount, repo_path: repoPath })
       try {
         await this.runner.run("git", ["-C", repoPath, "fetch", "origin"])
         await this.runner.run("git", ["-C", repoPath, "rebase", "origin/main"])
@@ -71,6 +76,13 @@ export class PushRetryCoordinator {
         const message = error instanceof Error ? error.message : "Retry attempt failed"
         if (isRebaseConflict(message)) {
           await this.runner.run("git", ["-C", repoPath, "rebase", "--abort"], { allowFailure: true })
+          logCloudEvent(
+            "push_retry_rebase_conflict",
+            { retry_count: retryCount, repo_path: repoPath, error: message },
+            "error",
+          )
+        } else {
+          logCloudEvent("push_retry_failed", { retry_count: retryCount, repo_path: repoPath, error: message }, "error")
         }
         lastError = message
       }

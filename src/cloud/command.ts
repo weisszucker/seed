@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { logDiagnostic, logDiagnosticError } from "../diagnostics/logging"
 
 export type CommandOptions = {
   cwd?: string
@@ -63,6 +64,11 @@ export class NodeCommandRunner implements CommandRunner {
         stderr += chunk.toString()
       })
       child.on("error", (error) => {
+        logDiagnosticError("cloud.command_spawn_failed", error, {
+          command,
+          command_line: formatCommand(command, args),
+          cwd,
+        })
         reject(error)
       })
 
@@ -75,6 +81,14 @@ export class NodeCommandRunner implements CommandRunner {
         const exitCode = code ?? 1
         const result = { stdout, stderr, exitCode }
         if (exitCode !== 0 && !options.allowFailure) {
+          logDiagnostic("error", "cloud.command_failed", {
+            command,
+            command_line: formatCommand(command, args),
+            cwd,
+            exit_code: exitCode,
+            stderr,
+            stdout,
+          })
           reject(new CommandExecutionError(command, args, cwd, result))
           return
         }

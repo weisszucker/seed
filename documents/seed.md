@@ -65,3 +65,15 @@ When Seed exits normally, it checks for changes, creates a commit (date/timestam
 
 If push fails, Seed should support retry.
 On exit-without-save during retry flow, local unpushed changes are discarded and local state is reset to `origin/main`.
+
+## Diagnostics Log
+
+Seed writes diagnostics logs to `~/.seed/log`.
+
+The log file is cleared on every app start.
+
+Logs are for diagnosing failures and reproducing scenarios.
+
+Logs must never include secrets or user document content.
+
+When a bug need a fix, check the log first. If the error can't be located with the help of the log, considering adding help log after the bug is located and fixed.

@@ -29,7 +29,7 @@ export class CloudLifecycleManager {
     logCloudEvent("startup_sync_failed", {
       repo: `${this.repo.owner}/${this.repo.repo}`,
       error: message,
-    })
+    }, "error")
     await this.saveMetadata("startup_failed", 0)
   }
 
@@ -38,24 +38,20 @@ export class CloudLifecycleManager {
 
     const commit = await this.commitService.commitIfChanged(this.repo.localPath)
     if (!commit.committed) {
-      console.error("Exit sync: no changes")
       logCloudEvent("exit_sync_no_changes")
       await this.saveMetadata("no_changes", 0)
       return
     }
 
-    console.error(`Exit sync: committed (${commit.message})`)
     logCloudEvent("exit_sync_committed", { message: commit.message })
 
     const push = await this.pushCoordinator.pushWithManualRetry(this.repo.localPath)
     if (push.status === "pushed") {
-      console.error("Exit sync: pushed")
       logCloudEvent("exit_sync_pushed", { retry_count: push.retryCount })
       await this.saveMetadata("pushed", push.retryCount)
       return
     }
 
-    console.error("Exit sync failed; local changes discarded")
     logCloudEvent("exit_sync_discarded", { retry_count: push.retryCount })
     await this.saveMetadata("discarded", push.retryCount)
   }
@@ -84,7 +80,7 @@ export function createCloudEffectRunner(lifecycle: CloudLifecycleManager): Runti
       await lifecycle.handleNormalExit()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown exit sync failure"
-      logCloudEvent("exit_sync_failed", { error: message })
+      logCloudEvent("exit_sync_failed", { error: message }, "error")
       console.error(`Exit sync failed: ${message}`)
       process.exitCode = 1
     }
