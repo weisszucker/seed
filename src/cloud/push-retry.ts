@@ -1,4 +1,5 @@
 import type { CommandRunner } from "./command"
+import { createNoopLogger, type Logger } from "../logging/logger"
 
 export enum RetryDecision {
   RETRY = "RETRY",
@@ -41,23 +42,38 @@ export class PushRetryCoordinator {
   constructor(
     private readonly runner: CommandRunner,
     private readonly prompt: RetryPrompt = new ConsoleRetryPrompt(),
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.push_retry" }),
   ) {}
 
   async pushWithManualRetry(repoPath: string): Promise<PushResult> {
     let retryCount = 0
     let lastError: string | null = null
+    const operation = this.logger.beginOperation("cloud.sync.push", { repo_path: repoPath })
 
     try {
       await this.runner.run("git", ["-C", repoPath, "push", "origin", "main"])
+      operation.succeed({ retry_count: retryCount })
       return { status: "pushed", retryCount }
     } catch (error) {
       lastError = error instanceof Error ? error.message : "git push failed"
+      this.logger.warn("cloud.sync.push_initial_failure", {
+        repo_path: repoPath,
+        reason: lastError,
+      })
     }
 
     while (true) {
       const decision = await this.prompt.askPushFailure(lastError ?? "git push failed")
+      this.logger.info("cloud.sync.push_retry_decision", {
+        retry_count: retryCount,
+        decision,
+      })
       if (decision === RetryDecision.EXIT_WITHOUT_SAVE) {
         await this.discardLocalChanges(repoPath)
+        operation.succeed({
+          retry_count: retryCount,
+          outcome: "discarded",
+        })
         return { status: "discarded", retryCount }
       }
 
@@ -66,12 +82,17 @@ export class PushRetryCoordinator {
         await this.runner.run("git", ["-C", repoPath, "fetch", "origin"])
         await this.runner.run("git", ["-C", repoPath, "rebase", "origin/main"])
         await this.runner.run("git", ["-C", repoPath, "push", "origin", "main"])
+        operation.succeed({ retry_count: retryCount })
         return { status: "pushed", retryCount }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Retry attempt failed"
         if (isRebaseConflict(message)) {
           await this.runner.run("git", ["-C", repoPath, "rebase", "--abort"], { allowFailure: true })
         }
+        this.logger.warn("cloud.sync.push_retry_failed", {
+          retry_count: retryCount,
+          reason: message,
+        })
         lastError = message
       }
     }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { CommandOptions, CommandResult, CommandRunner } from "../src/cloud/command"
-import { createGithubAuthenticatedRunner } from "../src/cloud/command"
+import { CommandExecutionError, createGithubAuthenticatedRunner } from "../src/cloud/command"
 
 class RecordingRunner implements CommandRunner {
   call:
@@ -80,5 +80,21 @@ describe("github authenticated runner", () => {
       args: ["test"],
       options,
     })
+  })
+
+  test("redacts sensitive security command arguments from failure messages", () => {
+    const error = new CommandExecutionError(
+      "security",
+      ["add-generic-password", "-a", "seed-cloud-github/alice", "-w", "secret-token"],
+      undefined,
+      {
+        stdout: "",
+        stderr: "permission denied",
+        exitCode: 1,
+      },
+    )
+
+    expect(error.message).toContain("[REDACTED]")
+    expect(error.message).not.toContain("secret-token")
   })
 })

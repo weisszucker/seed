@@ -5,7 +5,7 @@ import type { RepoContext } from "./bootstrap"
 import type { ExitCommitService } from "./exit-commit"
 import { CloudMetadataStore, type CloudMetadata } from "./metadata"
 import type { PushRetryCoordinator } from "./push-retry"
-import { logCloudEvent } from "./logging"
+import { createNoopLogger, type Logger } from "../logging/logger"
 
 export class CloudLifecycleManager {
   private readonly metadataStore: CloudMetadataStore
@@ -15,49 +15,53 @@ export class CloudLifecycleManager {
     private readonly commitService: ExitCommitService,
     private readonly pushCoordinator: PushRetryCoordinator,
     metadataStore?: CloudMetadataStore,
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.lifecycle" }),
     private readonly now: () => Date = () => new Date(),
   ) {
     this.metadataStore = metadataStore ?? new CloudMetadataStore()
   }
 
   async markStartupSuccess(): Promise<void> {
-    logCloudEvent("startup_sync_success", { repo: `${this.repo.owner}/${this.repo.repo}` })
+    this.logger.info("startup_sync_success")
     await this.saveMetadata("startup_synced", 0)
   }
 
   async markStartupFailure(message: string): Promise<void> {
-    logCloudEvent("startup_sync_failed", {
-      repo: `${this.repo.owner}/${this.repo.repo}`,
-      error: message,
-    })
+    this.logger.error("startup_sync_failed", new Error(message))
     await this.saveMetadata("startup_failed", 0)
   }
 
   async handleNormalExit(): Promise<void> {
-    logCloudEvent("exit_sync_start", { repo: `${this.repo.owner}/${this.repo.repo}` })
+    this.logger.info("exit_sync_start")
 
     const commit = await this.commitService.commitIfChanged(this.repo.localPath)
     if (!commit.committed) {
       console.error("Exit sync: no changes")
-      logCloudEvent("exit_sync_no_changes")
+      this.logger.info("exit_sync_no_changes")
       await this.saveMetadata("no_changes", 0)
       return
     }
 
     console.error(`Exit sync: committed (${commit.message})`)
-    logCloudEvent("exit_sync_committed", { message: commit.message })
+    this.logger.info("exit_sync_committed", { message: commit.message })
 
     const push = await this.pushCoordinator.pushWithManualRetry(this.repo.localPath)
     if (push.status === "pushed") {
       console.error("Exit sync: pushed")
-      logCloudEvent("exit_sync_pushed", { retry_count: push.retryCount })
+      this.logger.info("exit_sync_pushed", { retry_count: push.retryCount })
       await this.saveMetadata("pushed", push.retryCount)
       return
     }
 
     console.error("Exit sync failed; local changes discarded")
-    logCloudEvent("exit_sync_discarded", { retry_count: push.retryCount })
+    this.logger.warn("exit_sync_discarded", { retry_count: push.retryCount })
     await this.saveMetadata("discarded", push.retryCount)
+  }
+
+  handleExitFailure(error: unknown): void {
+    this.logger.error("exit_sync_failed", error, {
+      repo_path: this.repo.localPath,
+    })
   }
 
   private async saveMetadata(lastStatus: string, retryCount: number): Promise<void> {
@@ -84,7 +88,7 @@ export function createCloudEffectRunner(lifecycle: CloudLifecycleManager): Runti
       await lifecycle.handleNormalExit()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown exit sync failure"
-      logCloudEvent("exit_sync_failed", { error: message })
+      lifecycle.handleExitFailure(error)
       console.error(`Exit sync failed: ${message}`)
       process.exitCode = 1
     }

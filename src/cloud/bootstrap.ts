@@ -5,6 +5,7 @@ import { homedir } from "node:os"
 
 import type { CommandRunner } from "./command"
 import type { GithubClient } from "./github"
+import { createNoopLogger, type Logger } from "../logging/logger"
 
 export type RepoContext = {
   owner: string
@@ -56,9 +57,14 @@ export class RepoBootstrapper {
     private readonly runner: CommandRunner,
     private readonly githubClient: GithubClient,
     private readonly rootDir = join(homedir(), ".seed"),
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.bootstrap" }),
   ) {}
 
   async ensureReady(owner: string, repo: string, token: string, authenticatedLogin: string): Promise<RepoContext> {
+    const operation = this.logger.beginOperation("cloud.repo.bootstrap", {
+      owner,
+      repo,
+    })
     const repoInfo = await this.githubClient.ensureRepository(owner, repo, token, authenticatedLogin)
     const remoteUrl = repoInfo.remoteUrl || formatRemoteHttps(owner, repo)
     const localPath = join(this.rootDir, owner, repo)
@@ -73,6 +79,11 @@ export class RepoBootstrapper {
     await this.ensureMainBranch(localPath)
     await this.ensureInitializedRemote(localPath)
     await this.ensureMainTracking(localPath)
+    operation.succeed({
+      local_path: localPath,
+      remote_url: remoteUrl,
+      repository_created: repoInfo.created,
+    })
 
     return {
       owner,
@@ -88,13 +99,19 @@ export class RepoBootstrapper {
     const actualSlug = normalizeRemoteSlug(result.stdout.trim())
     const expectedSlug = `${owner.toLowerCase()}/${repo.toLowerCase()}`
     if (!actualSlug || actualSlug !== expectedSlug) {
-      throw new Error(
+      const error = new Error(
         [
           `Local repo remote mismatch at ${localPath}.`,
           `Expected origin to point to ${owner}/${repo}.`,
           `Found: ${result.stdout.trim() || "(missing)"}`,
         ].join(" "),
       )
+      this.logger.error("cloud.repo.remote_mismatch", error, {
+        local_path: localPath,
+        expected_repo: expectedSlug,
+        actual_repo: actualSlug ?? "(missing)",
+      })
+      throw error
     }
   }
 
