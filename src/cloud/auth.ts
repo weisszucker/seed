@@ -85,7 +85,7 @@ export class AuthService {
       } catch (error) {
         await this.credentialStore.clear(key)
         const message = error instanceof Error ? error.message : "Authentication failed"
-        console.error(`[seed-cloud] Stored credential rejected: ${message}`)
+        console.info(`[seed-cloud] Stored credential rejected: ${message}`)
         this.logger.warn("cloud.auth.cache_rejected", {
           credential_key: key,
           reason: message,

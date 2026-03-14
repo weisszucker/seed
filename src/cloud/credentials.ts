@@ -261,7 +261,7 @@ export class CompositeCredentialStore implements CredentialStore {
         primaryStored = true
       } catch {
         if (!this.warnedAboutFallback) {
-          console.error("[seed-cloud] Primary credential store unavailable; using local credential cache.")
+          console.info("[seed-cloud] Primary credential store unavailable; using local credential cache.")
           this.logger.warn("cloud.credentials.fallback_enabled", {
             reason: "primary_store_set_failed",
           })

@@ -82,7 +82,6 @@ export async function runCloudMode(owner: string, repo: string, options: CloudMo
       throw new Error(`Cloud startup sync failed: ${message}`)
     }
 
-    console.error("Cloud mode ready")
     cloudLogger.info("cloud_mode_ready", { local_path: repoContext.localPath })
     await startSeedApp({
       cwd: repoContext.localPath,
