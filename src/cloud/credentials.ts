@@ -4,6 +4,7 @@ import { homedir } from "node:os"
 
 import type { CommandRunner } from "./command"
 import { commandExists } from "./command"
+import { createNoopLogger, type Logger } from "../logging/logger"
 
 export type CredentialBackend = {
   helper: string
@@ -224,6 +225,7 @@ export class CompositeCredentialStore implements CredentialStore {
   constructor(
     private readonly primary: CredentialStore,
     private readonly fallback: CredentialStore,
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.credentials" }),
   ) {}
 
   isAvailable(): boolean {
@@ -240,7 +242,10 @@ export class CompositeCredentialStore implements CredentialStore {
       } catch (error) {
         if (authDebugEnabled()) {
           const message = error instanceof Error ? error.message : "unknown error"
-          console.error(`[seed-cloud][auth-debug] primary credential get failed for key ${key}: ${message}`)
+          this.logger.debug("cloud.credentials.primary_get_failed", {
+            credential_key: key,
+            reason: message,
+          })
         }
       }
     }
@@ -257,6 +262,9 @@ export class CompositeCredentialStore implements CredentialStore {
       } catch {
         if (!this.warnedAboutFallback) {
           console.error("[seed-cloud] Primary credential store unavailable; using local credential cache.")
+          this.logger.warn("cloud.credentials.fallback_enabled", {
+            reason: "primary_store_set_failed",
+          })
           this.warnedAboutFallback = true
         }
       }
@@ -283,6 +291,7 @@ export class MacOSKeychainStore implements CredentialStore {
   constructor(
     private readonly runner: CommandRunner,
     private readonly available: boolean,
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.credentials.keychain" }),
   ) {}
 
   isAvailable(): boolean {
@@ -298,7 +307,7 @@ export class MacOSKeychainStore implements CredentialStore {
     )
     if (result.exitCode !== 0) {
       if (authDebugEnabled()) {
-        console.error(`[seed-cloud][auth-debug] keychain miss for key: ${key}`)
+        this.logger.debug("cloud.credentials.keychain_miss", { credential_key: key })
       }
       return null
     }
@@ -379,6 +388,7 @@ export class GitCredentialStore implements CredentialStore {
   constructor(
     private readonly runner: CommandRunner,
     private readonly backend: CredentialBackend | null,
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.credentials.git" }),
   ) {}
 
   isAvailable(): boolean {
@@ -401,7 +411,7 @@ export class GitCredentialStore implements CredentialStore {
     })
     if (result.exitCode !== 0) {
       if (authDebugEnabled()) {
-        console.error(`[seed-cloud][auth-debug] credential fill missed for key: ${key}`)
+        this.logger.debug("cloud.credentials.git_fill_miss", { credential_key: key })
       }
       return null
     }
@@ -409,7 +419,10 @@ export class GitCredentialStore implements CredentialStore {
     const parsed = parseCredentialOutput(result.stdout)
     if (authDebugEnabled()) {
       const fields = Object.keys(parsed).sort().join(",")
-      console.error(`[seed-cloud][auth-debug] credential fill returned fields for key ${key}: ${fields || "(none)"}`)
+      this.logger.debug("cloud.credentials.git_fill_fields", {
+        credential_key: key,
+        fields: fields || "(none)",
+      })
     }
     return parsed.password ?? null
   }
@@ -420,7 +433,7 @@ export class GitCredentialStore implements CredentialStore {
 
     const { host, username } = parseCredentialKey(key)
     if (authDebugEnabled()) {
-      console.error(`[seed-cloud][auth-debug] credential approve for key: ${key}`)
+      this.logger.debug("cloud.credentials.git_approve", { credential_key: key })
     }
     await this.runner.run("git", this.credentialCommandArgs("approve"), {
       stdin: toCredentialInput(host, username, value),
@@ -433,7 +446,7 @@ export class GitCredentialStore implements CredentialStore {
 
     const { host, username } = parseCredentialKey(key)
     if (authDebugEnabled()) {
-      console.error(`[seed-cloud][auth-debug] credential reject for key: ${key}`)
+      this.logger.debug("cloud.credentials.git_reject", { credential_key: key })
     }
     await this.runner.run("git", this.credentialCommandArgs("reject"), {
       stdin: toCredentialInput(host, username),
@@ -493,14 +506,27 @@ export class GitCredentialStore implements CredentialStore {
 export async function createCredentialStore(
   runner: CommandRunner,
   platform: NodeJS.Platform = process.platform,
+  logger: Logger = createNoopLogger({ component: "cloud.credentials" }),
 ): Promise<CredentialStore> {
   const fallbackStore = new LocalFileCredentialStore()
   if (platform === "darwin") {
-    return new CompositeCredentialStore(new MacOSKeychainStore(runner, await commandExists(runner, "security")), fallbackStore)
+    return new CompositeCredentialStore(
+      new MacOSKeychainStore(runner, await commandExists(runner, "security"), logger.child({
+        component: "cloud.credentials.keychain",
+      })),
+      fallbackStore,
+      logger,
+    )
   }
 
   const backend =
     (await resolveConfiguredCredentialBackend(runner, platform)) ??
     (await resolveAvailableCredentialBackend(runner, platform))
-  return new CompositeCredentialStore(new GitCredentialStore(runner, backend), fallbackStore)
+  return new CompositeCredentialStore(
+    new GitCredentialStore(runner, backend, logger.child({
+      component: "cloud.credentials.git",
+    })),
+    fallbackStore,
+    logger,
+  )
 }

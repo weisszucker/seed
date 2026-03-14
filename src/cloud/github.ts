@@ -4,6 +4,8 @@ type RequestOptions = {
   body?: unknown
 }
 
+import { createNoopLogger, type Logger } from "../logging/logger"
+
 type GithubRepoResponse = {
   clone_url: string
 }
@@ -18,7 +20,10 @@ export type GithubRepoInfo = {
 }
 
 export class GithubClient {
-  constructor(private readonly baseUrl = "https://api.github.com") {}
+  constructor(
+    private readonly baseUrl = "https://api.github.com",
+    private readonly logger: Logger = createNoopLogger({ component: "cloud.github" }),
+  ) {}
 
   async getAuthenticatedUser(token: string): Promise<GithubUser> {
     const response = await this.request("/user", { token })
@@ -79,6 +84,10 @@ export class GithubClient {
 
   private async request(path: string, options: RequestOptions): Promise<Response> {
     const method = options.method ?? "GET"
+    const operation = this.logger.beginOperation("cloud.github.request", {
+      method,
+      path,
+    })
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${options.token}`,
@@ -96,10 +105,14 @@ export class GithubClient {
     }
 
     try {
-      return await fetch(`${this.baseUrl}${path}`, init)
+      const response = await fetch(`${this.baseUrl}${path}`, init)
+      operation.succeed({ status: response.status })
+      return response
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown network error"
-      throw new Error(`GitHub API request failed: ${message}`)
+      const wrapped = new Error(`GitHub API request failed: ${message}`)
+      operation.fail(wrapped)
+      throw wrapped
     }
   }
 

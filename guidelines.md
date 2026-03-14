@@ -185,6 +185,22 @@ Core behavior must be testable without network access.
 
 Failure modes must be handled explicitly and consistently.
 
+5.3 Diagnostic Logging Must Be Structured and Useful
+
+The system includes a diagnostic logging layer for runtime investigation. Diagnostic logs are stored under `~/.seed/log` as structured JSONL files and are meant for debugging, failure analysis, and runtime tracing. These logs are distinct from user-facing messages shown in the CLI.
+
+Rules:
+
+Diagnostic logs must go through the centralized logging interface, not ad-hoc file writes.
+
+Logs must capture enough context to reconstruct what happened, including component, operation, and relevant runtime state.
+
+Potential failure paths must emit diagnostic logs that are sufficient to locate the cause of the error.
+
+Sensitive data such as tokens, passwords, secrets, and authorization headers must never be written to logs.
+
+User-facing output and diagnostic logging must be treated as separate concerns.
+
 6. Evolution & Maintainability
 6.1 Optimize for Change, Not Speed
 

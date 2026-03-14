@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process"
 
+import type { Logger } from "../logging/logger"
+
 export type CommandOptions = {
   cwd?: string
   stdin?: string
@@ -15,6 +17,20 @@ export type CommandResult = {
 
 export interface CommandRunner {
   run(command: string, args: string[], options?: CommandOptions): Promise<CommandResult>
+}
+
+function sanitizeArgs(command: string, args: string[]): string[] {
+  const sanitized = [...args]
+
+  if (command === "security") {
+    for (let index = 0; index < sanitized.length - 1; index += 1) {
+      if (sanitized[index] === "-w") {
+        sanitized[index + 1] = "[REDACTED]"
+      }
+    }
+  }
+
+  return sanitized
 }
 
 function appendGitConfigEntries(
@@ -62,7 +78,7 @@ export function createGithubAuthenticatedRunner(runner: CommandRunner, token: st
 }
 
 function formatCommand(command: string, args: string[]): string {
-  const quoted = args.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg))
+  const quoted = sanitizeArgs(command, args).map((arg) => (arg.includes(" ") ? `"${arg}"` : arg))
   return [command, ...quoted].join(" ")
 }
 
@@ -87,9 +103,16 @@ export class CommandExecutionError extends Error {
 }
 
 export class NodeCommandRunner implements CommandRunner {
+  constructor(private readonly logger?: Logger) {}
+
   async run(command: string, args: string[], options: CommandOptions = {}): Promise<CommandResult> {
     const cwd = options.cwd
     const env = options.env ? { ...process.env, ...options.env } : process.env
+    const operation = this.logger?.beginOperation("command.run", {
+      command,
+      args: sanitizeArgs(command, args),
+      cwd,
+    })
 
     return await new Promise<CommandResult>((resolve, reject) => {
       const child = spawn(command, args, {
@@ -119,9 +142,20 @@ export class NodeCommandRunner implements CommandRunner {
         const exitCode = code ?? 1
         const result = { stdout, stderr, exitCode }
         if (exitCode !== 0 && !options.allowFailure) {
-          reject(new CommandExecutionError(command, args, cwd, result))
+          const error = new CommandExecutionError(command, args, cwd, result)
+          operation?.fail(error, {
+            exit_code: exitCode,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          })
+          reject(error)
           return
         }
+        operation?.succeed({
+          exit_code: exitCode,
+          stdout_bytes: stdout.length,
+          stderr_bytes: stderr.length,
+        })
         resolve(result)
       })
     })
