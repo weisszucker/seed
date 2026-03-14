@@ -6,36 +6,52 @@ import {
   resolveGithubOauthClientId,
   type GithubIdentityProvider,
 } from "../src/cloud/auth"
-import type { CredentialStore } from "../src/cloud/credentials"
+import {
+  credentialKeyForGithubAccount,
+  credentialKeyForGithubHost,
+  credentialKeyForOwner,
+  legacyCredentialKeyForOwner,
+  type CredentialStore,
+} from "../src/cloud/credentials"
 import type { DeviceAuthorizationClient } from "../src/cloud/device-flow"
 
 class MemoryCredentialStore implements CredentialStore {
-  private value: string | null = null
+  private readonly values = new Map<string, string>()
   private available: boolean
   clearCount = 0
   setCount = 0
+  clearedKeys: string[] = []
+  setKeys: string[] = []
 
-  constructor(available = true, initialValue: string | null = null) {
+  constructor(available = true, initialEntries: Record<string, string> = {}) {
     this.available = available
-    this.value = initialValue
+    Object.entries(initialEntries).forEach(([key, value]) => {
+      this.values.set(key, value)
+    })
   }
 
   isAvailable(): boolean {
     return this.available
   }
 
-  async get(_key: string): Promise<string | null> {
-    return this.value
+  async get(key: string): Promise<string | null> {
+    return this.values.get(key) ?? null
   }
 
-  async set(_key: string, value: string): Promise<void> {
-    this.value = value
+  async set(key: string, value: string): Promise<void> {
+    this.values.set(key, value)
     this.setCount += 1
+    this.setKeys.push(key)
   }
 
-  async clear(_key: string): Promise<void> {
-    this.value = null
+  async clear(key: string): Promise<void> {
+    this.values.delete(key)
     this.clearCount += 1
+    this.clearedKeys.push(key)
+  }
+
+  read(key: string): string | null {
+    return this.values.get(key) ?? null
   }
 }
 
@@ -76,7 +92,9 @@ describe("cloud auth service", () => {
   })
 
   test("reuses cached valid token and skips device flow", async () => {
-    const credentials = new MemoryCredentialStore(true, "cached-token")
+    const credentials = new MemoryCredentialStore(true, {
+      [credentialKeyForGithubHost()]: "cached-token",
+    })
     const identity = new FakeIdentityProvider("cached-token")
     const device = new FakeDeviceAuthClient("new-token")
     const auth = new AuthService(credentials, identity, device)
@@ -85,11 +103,15 @@ describe("cloud auth service", () => {
 
     expect(session).toEqual({ token: "cached-token", userLogin: "alice" })
     expect(device.calls).toBe(0)
-    expect(credentials.setCount).toBe(0)
+    expect(credentials.read(credentialKeyForGithubHost())).toBe("cached-token")
+    expect(credentials.read(credentialKeyForGithubAccount())).toBe("cached-token")
+    expect(credentials.read(credentialKeyForOwner("alice"))).toBe("cached-token")
   })
 
   test("clears invalid cached token and re-authenticates with device flow", async () => {
-    const credentials = new MemoryCredentialStore(true, "stale-token")
+    const credentials = new MemoryCredentialStore(true, {
+      [credentialKeyForGithubHost()]: "stale-token",
+    })
     const identity = new FakeIdentityProvider("fresh-token")
     const device = new FakeDeviceAuthClient("fresh-token")
     const auth = new AuthService(credentials, identity, device)
@@ -98,12 +120,32 @@ describe("cloud auth service", () => {
 
     expect(session).toEqual({ token: "fresh-token", userLogin: "alice" })
     expect(credentials.clearCount).toBe(1)
-    expect(credentials.setCount).toBe(1)
+    expect(credentials.clearedKeys).toEqual([credentialKeyForGithubHost()])
+    expect(credentials.read(credentialKeyForGithubHost())).toBe("fresh-token")
+    expect(credentials.read(credentialKeyForGithubAccount())).toBe("fresh-token")
+    expect(credentials.read(credentialKeyForOwner("alice"))).toBe("fresh-token")
     expect(device.calls).toBe(1)
   })
 
+  test("reuses token stored under a differently cased owner", async () => {
+    const credentials = new MemoryCredentialStore(true, {
+      [legacyCredentialKeyForOwner("WeissZucker")]: "cached-token",
+    })
+    const identity = new FakeIdentityProvider("cached-token")
+    const device = new FakeDeviceAuthClient("new-token")
+    const auth = new AuthService(credentials, identity, device)
+
+    const session = await auth.ensureAuthenticated("weisszucker")
+
+    expect(session).toEqual({ token: "cached-token", userLogin: "alice" })
+    expect(device.calls).toBe(0)
+    expect(credentials.read(credentialKeyForGithubHost())).toBe("cached-token")
+    expect(credentials.read(credentialKeyForGithubAccount())).toBe("cached-token")
+    expect(credentials.read(credentialKeyForOwner("alice"))).toBe("cached-token")
+  })
+
   test("fails fast when secure credential backend is unavailable", async () => {
-    const credentials = new MemoryCredentialStore(false, null)
+    const credentials = new MemoryCredentialStore(false)
     const identity = new FakeIdentityProvider("token")
     const device = new FakeDeviceAuthClient("token")
     const auth = new AuthService(credentials, identity, device)

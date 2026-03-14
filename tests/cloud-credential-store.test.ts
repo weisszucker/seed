@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { CommandOptions, CommandResult, CommandRunner } from "../src/cloud/command"
-import { GitCredentialStore } from "../src/cloud/credentials"
+import { GitCredentialStore, MacOSKeychainStore } from "../src/cloud/credentials"
 
 class CredentialRunner implements CommandRunner {
   readonly calls: string[] = []
@@ -75,6 +75,24 @@ describe("git credential store config", () => {
     )
   })
 
+  test("supports host-only credential keys", async () => {
+    const runner = new CredentialRunner()
+    const store = new GitCredentialStore(runner, {
+      helper: "osxkeychain",
+      binary: "git-credential-osxkeychain",
+    })
+
+    await store.set("github.com", "token")
+    await store.get("github.com")
+
+    expect(runner.calls).toContain(
+      "git -c credential.helper= -c credential.helper=osxkeychain credential approve",
+    )
+    expect(runner.calls).toContain(
+      "git -c credential.helper= -c credential.helper=osxkeychain -c credential.interactive=never credential fill",
+    )
+  })
+
   test("scopes credential approve and reject to the selected helper", async () => {
     const runner = new CredentialRunner()
     const store = new GitCredentialStore(runner, {
@@ -90,6 +108,27 @@ describe("git credential store config", () => {
     )
     expect(runner.calls).toContain(
       "git -c credential.helper= -c credential.helper=/usr/local/share/gcm-core/git-credential-manager credential reject",
+    )
+  })
+})
+
+describe("macOS keychain store", () => {
+  test("uses security tool to store, fetch, and delete credentials", async () => {
+    const runner = new CredentialRunner()
+    const store = new MacOSKeychainStore(runner, true)
+
+    await store.set("seed-cloud-github/weisszucker", "token")
+    await store.get("seed-cloud-github/weisszucker")
+    await store.clear("seed-cloud-github/weisszucker")
+
+    expect(runner.calls).toContain(
+      "security add-generic-password -U -a seed-cloud-github/weisszucker -s seed-cloud -w token",
+    )
+    expect(runner.calls).toContain(
+      "security find-generic-password -a seed-cloud-github/weisszucker -s seed-cloud -w",
+    )
+    expect(runner.calls).toContain(
+      "security delete-generic-password -a seed-cloud-github/weisszucker -s seed-cloud",
     )
   })
 })

@@ -1,4 +1,6 @@
-import { join } from "node:path"
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises"
+import { dirname, join } from "node:path"
+import { homedir } from "node:os"
 
 import type { CommandRunner } from "./command"
 import { commandExists } from "./command"
@@ -6,6 +8,14 @@ import { commandExists } from "./command"
 export type CredentialBackend = {
   helper: string
   binary: string
+}
+
+const SEED_CLOUD_CREDENTIAL_HOST = "seed-cloud-github"
+const MACOS_KEYCHAIN_SERVICE = "seed-cloud"
+const FALLBACK_CACHE_PATH = join(homedir(), ".seed", ".cloud-credentials.json")
+
+function authDebugEnabled(): boolean {
+  return process.env.SEED_CLOUD_AUTH_DEBUG === "1"
 }
 
 const BACKEND_BY_PLATFORM: Record<string, CredentialBackend[]> = {
@@ -75,11 +85,11 @@ async function resolveConfiguredCredentialBackend(
   const helpers = await configuredCredentialHelpers(runner)
   const candidates = credentialCandidates(platform)
 
-  for (const helper of helpers) {
-    const match = candidates.find((candidate) => helperMatchesCandidate(helper, candidate))
-    if (match) {
+  for (const candidate of candidates) {
+    const helper = helpers.find((configuredHelper) => helperMatchesCandidate(configuredHelper, candidate))
+    if (helper) {
       return {
-        ...match,
+        ...candidate,
         helper,
       }
     }
@@ -115,8 +125,32 @@ async function resolveAvailableCredentialBackend(
   return await resolveCredentialBackend(platform, async (binary) => commandExists(runner, join(execPath, binary)))
 }
 
+function normalizeCredentialIdentity(identity: string): string {
+  return identity.trim().toLowerCase()
+}
+
 export function credentialKeyForOwner(owner: string): string {
-  return `github.com/${owner}`
+  return `${SEED_CLOUD_CREDENTIAL_HOST}/${normalizeCredentialIdentity(owner)}`
+}
+
+export function credentialKeyForGithubHost(): string {
+  return SEED_CLOUD_CREDENTIAL_HOST
+}
+
+export function credentialKeyForGithubAccount(): string {
+  return `${SEED_CLOUD_CREDENTIAL_HOST}/seed-cloud`
+}
+
+export function legacyCredentialKeyForOwner(owner: string): string {
+  return `github.com/${normalizeCredentialIdentity(owner)}`
+}
+
+export function legacyCredentialKeyForGithubHost(): string {
+  return "github.com"
+}
+
+export function legacyCredentialKeyForGithubAccount(): string {
+  return "github.com/seed-cloud"
 }
 
 export interface CredentialStore {
@@ -126,12 +160,194 @@ export interface CredentialStore {
   clear(key: string): Promise<void>
 }
 
-function parseCredentialKey(key: string): { host: string; username: string } {
+type CredentialCacheFile = {
+  version: 1
+  entries: Record<string, string>
+}
+
+export class LocalFileCredentialStore implements CredentialStore {
+  constructor(private readonly cachePath = FALLBACK_CACHE_PATH) {}
+
+  isAvailable(): boolean {
+    return true
+  }
+
+  async get(key: string): Promise<string | null> {
+    const cache = await this.readCache()
+    return cache.entries[key] ?? null
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    const cache = await this.readCache()
+    cache.entries[key] = value
+    await this.writeCache(cache)
+  }
+
+  async clear(key: string): Promise<void> {
+    const cache = await this.readCache()
+    if (!(key in cache.entries)) {
+      return
+    }
+    delete cache.entries[key]
+    await this.writeCache(cache)
+  }
+
+  private async readCache(): Promise<CredentialCacheFile> {
+    try {
+      const raw = await readFile(this.cachePath, "utf8")
+      const parsed = JSON.parse(raw) as Partial<CredentialCacheFile>
+      if (parsed.version === 1 && parsed.entries && typeof parsed.entries === "object") {
+        return {
+          version: 1,
+          entries: Object.fromEntries(
+            Object.entries(parsed.entries).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+          ),
+        }
+      }
+    } catch {
+      return { version: 1, entries: {} }
+    }
+
+    return { version: 1, entries: {} }
+  }
+
+  private async writeCache(cache: CredentialCacheFile): Promise<void> {
+    await mkdir(dirname(this.cachePath), { recursive: true })
+    await writeFile(this.cachePath, `${JSON.stringify(cache, null, 2)}\n`, { mode: 0o600 })
+    await chmod(this.cachePath, 0o600)
+  }
+}
+
+export class CompositeCredentialStore implements CredentialStore {
+  private warnedAboutFallback = false
+
+  constructor(
+    private readonly primary: CredentialStore,
+    private readonly fallback: CredentialStore,
+  ) {}
+
+  isAvailable(): boolean {
+    return this.primary.isAvailable() || this.fallback.isAvailable()
+  }
+
+  async get(key: string): Promise<string | null> {
+    if (this.primary.isAvailable()) {
+      try {
+        const value = await this.primary.get(key)
+        if (value) {
+          return value
+        }
+      } catch (error) {
+        if (authDebugEnabled()) {
+          const message = error instanceof Error ? error.message : "unknown error"
+          console.error(`[seed-cloud][auth-debug] primary credential get failed for key ${key}: ${message}`)
+        }
+      }
+    }
+
+    return await this.fallback.get(key)
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    let primaryStored = false
+    if (this.primary.isAvailable()) {
+      try {
+        await this.primary.set(key, value)
+        primaryStored = true
+      } catch {
+        if (!this.warnedAboutFallback) {
+          console.error("[seed-cloud] Primary credential store unavailable; using local credential cache.")
+          this.warnedAboutFallback = true
+        }
+      }
+    }
+
+    if (!primaryStored) {
+      await this.fallback.set(key, value)
+    }
+  }
+
+  async clear(key: string): Promise<void> {
+    if (this.primary.isAvailable()) {
+      try {
+        await this.primary.clear(key)
+      } catch {
+        // Ignore primary clear failures and continue to fallback cleanup.
+      }
+    }
+    await this.fallback.clear(key)
+  }
+}
+
+export class MacOSKeychainStore implements CredentialStore {
+  constructor(
+    private readonly runner: CommandRunner,
+    private readonly available: boolean,
+  ) {}
+
+  isAvailable(): boolean {
+    return this.available
+  }
+
+  async get(key: string): Promise<string | null> {
+    this.requireAvailable()
+    const result = await this.runner.run(
+      "security",
+      ["find-generic-password", "-a", key, "-s", MACOS_KEYCHAIN_SERVICE, "-w"],
+      { allowFailure: true },
+    )
+    if (result.exitCode !== 0) {
+      if (authDebugEnabled()) {
+        console.error(`[seed-cloud][auth-debug] keychain miss for key: ${key}`)
+      }
+      return null
+    }
+
+    return result.stdout.trim() || null
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    this.requireAvailable()
+    await this.runner.run("security", [
+      "add-generic-password",
+      "-U",
+      "-a",
+      key,
+      "-s",
+      MACOS_KEYCHAIN_SERVICE,
+      "-w",
+      value,
+    ])
+  }
+
+  async clear(key: string): Promise<void> {
+    this.requireAvailable()
+    await this.runner.run("security", ["delete-generic-password", "-a", key, "-s", MACOS_KEYCHAIN_SERVICE], {
+      allowFailure: true,
+    })
+  }
+
+  private requireAvailable(): void {
+    if (this.available) {
+      return
+    }
+
+    throw new Error("macOS Keychain is not available.")
+  }
+}
+
+function parseCredentialKey(key: string): { host: string; username?: string } {
   const parts = key.split("/")
+  if (parts.length === 1 && parts[0]) {
+    return { host: parts[0] }
+  }
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { host: parts[0], username: parts[1] }
+  }
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error(`Invalid credential key: "${key}"`)
   }
-  return { host: parts[0], username: parts[1] }
+  throw new Error(`Invalid credential key: "${key}"`)
 }
 
 function parseCredentialOutput(raw: string): Record<string, string> {
@@ -146,8 +362,11 @@ function parseCredentialOutput(raw: string): Record<string, string> {
   return result
 }
 
-function toCredentialInput(host: string, username: string, password?: string): string {
-  const fields = [`protocol=https`, `host=${host}`, `username=${username}`]
+function toCredentialInput(host: string, username?: string, password?: string): string {
+  const fields = [`protocol=https`, `host=${host}`]
+  if (typeof username === "string" && username.length > 0) {
+    fields.push(`username=${username}`)
+  }
   if (typeof password === "string") {
     fields.push(`password=${password}`)
   }
@@ -181,10 +400,17 @@ export class GitCredentialStore implements CredentialStore {
       },
     })
     if (result.exitCode !== 0) {
+      if (authDebugEnabled()) {
+        console.error(`[seed-cloud][auth-debug] credential fill missed for key: ${key}`)
+      }
       return null
     }
 
     const parsed = parseCredentialOutput(result.stdout)
+    if (authDebugEnabled()) {
+      const fields = Object.keys(parsed).sort().join(",")
+      console.error(`[seed-cloud][auth-debug] credential fill returned fields for key ${key}: ${fields || "(none)"}`)
+    }
     return parsed.password ?? null
   }
 
@@ -193,6 +419,9 @@ export class GitCredentialStore implements CredentialStore {
     await this.ensureConfigured()
 
     const { host, username } = parseCredentialKey(key)
+    if (authDebugEnabled()) {
+      console.error(`[seed-cloud][auth-debug] credential approve for key: ${key}`)
+    }
     await this.runner.run("git", this.credentialCommandArgs("approve"), {
       stdin: toCredentialInput(host, username, value),
     })
@@ -203,6 +432,9 @@ export class GitCredentialStore implements CredentialStore {
     await this.ensureConfigured()
 
     const { host, username } = parseCredentialKey(key)
+    if (authDebugEnabled()) {
+      console.error(`[seed-cloud][auth-debug] credential reject for key: ${key}`)
+    }
     await this.runner.run("git", this.credentialCommandArgs("reject"), {
       stdin: toCredentialInput(host, username),
       allowFailure: true,
@@ -262,8 +494,13 @@ export async function createCredentialStore(
   runner: CommandRunner,
   platform: NodeJS.Platform = process.platform,
 ): Promise<CredentialStore> {
+  const fallbackStore = new LocalFileCredentialStore()
+  if (platform === "darwin") {
+    return new CompositeCredentialStore(new MacOSKeychainStore(runner, await commandExists(runner, "security")), fallbackStore)
+  }
+
   const backend =
     (await resolveConfiguredCredentialBackend(runner, platform)) ??
     (await resolveAvailableCredentialBackend(runner, platform))
-  return new GitCredentialStore(runner, backend)
+  return new CompositeCredentialStore(new GitCredentialStore(runner, backend), fallbackStore)
 }

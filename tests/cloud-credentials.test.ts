@@ -9,6 +9,17 @@ class CredentialResolverRunner implements CommandRunner {
   availableCommands = new Set<string>()
 
   async run(command: string, args: string[], _options?: CommandOptions): Promise<CommandResult> {
+    if (command === "security" && args.join(" ") === "--version") {
+      if (this.availableCommands.has(command)) {
+        return {
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+        }
+      }
+      throw new Error(`spawn ${command} ENOENT`)
+    }
+
     if (args.join(" ") === "config --global --get-all credential.helper") {
       return {
         stdout: this.configuredHelpers,
@@ -79,6 +90,7 @@ describe("credential backend resolver", () => {
 
   test("accepts configured path-based git credential manager on macOS", async () => {
     const runner = new CredentialResolverRunner()
+    runner.availableCommands.add("security")
     runner.configuredHelpers = "/usr/local/share/gcm-core/git-credential-manager\n"
 
     const store = await createCredentialStore(runner, "darwin")
@@ -86,10 +98,29 @@ describe("credential backend resolver", () => {
     expect(store.isAvailable()).toBe(true)
   })
 
+  test("prefers configured osxkeychain over configured git credential manager on macOS", async () => {
+    const runner = new CredentialResolverRunner()
+    runner.availableCommands.add("security")
+    runner.configuredHelpers = "/usr/local/share/gcm-core/git-credential-manager\nosxkeychain\n"
+    const store = await createCredentialStore(runner, "darwin")
+
+    expect(store.isAvailable()).toBe(true)
+  })
+
   test("finds osxkeychain in git exec-path when it is not on PATH", async () => {
     const runner = new CredentialResolverRunner()
+    runner.availableCommands.add("security")
     runner.execPath = "/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core"
     runner.availableCommands.add("/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core/git-credential-osxkeychain")
+
+    const store = await createCredentialStore(runner, "darwin")
+
+    expect(store.isAvailable()).toBe(true)
+  })
+
+  test("uses security tool as the macOS credential store when available", async () => {
+    const runner = new CredentialResolverRunner()
+    runner.availableCommands.add("security")
 
     const store = await createCredentialStore(runner, "darwin")
 

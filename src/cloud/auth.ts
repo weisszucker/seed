@@ -1,5 +1,10 @@
 import type { CredentialStore } from "./credentials"
+import { credentialKeyForGithubHost } from "./credentials"
+import { credentialKeyForGithubAccount } from "./credentials"
 import { credentialKeyForOwner } from "./credentials"
+import { legacyCredentialKeyForGithubAccount } from "./credentials"
+import { legacyCredentialKeyForGithubHost } from "./credentials"
+import { legacyCredentialKeyForOwner } from "./credentials"
 import { GithubDeviceAuthorizationClient, type DeviceAuthorizationClient } from "./device-flow"
 import type { GithubUser } from "./github"
 
@@ -16,6 +21,10 @@ export const DEFAULT_GITHUB_OAUTH_CLIENT_ID = "Ov23lixUX18kHxF16jdz"
 
 export function resolveGithubOauthClientId(): string {
   return DEFAULT_GITHUB_OAUTH_CLIENT_ID
+}
+
+function authDebugEnabled(): boolean {
+  return process.env.SEED_CLOUD_AUTH_DEBUG === "1"
 }
 
 export class AuthService {
@@ -39,11 +48,24 @@ export class AuthService {
       )
     }
 
-    const key = credentialKeyForOwner(owner)
-    const cached = await this.credentialStore.get(key)
-    if (cached) {
+    for (const key of this.keysForLookup(owner)) {
+      if (authDebugEnabled()) {
+        console.error(`[seed-cloud][auth-debug] checking credential key: ${key}`)
+      }
+      const cached = await this.credentialStore.get(key)
+      if (!cached) {
+        if (authDebugEnabled()) {
+          console.error(`[seed-cloud][auth-debug] no credential found for key: ${key}`)
+        }
+        continue
+      }
+
       try {
         const user = await this.githubClient.getAuthenticatedUser(cached)
+        await this.persistToken(owner, user.login, cached)
+        if (authDebugEnabled()) {
+          console.error(`[seed-cloud][auth-debug] cache hit accepted for key: ${key} as user ${user.login}`)
+        }
         return {
           token: cached,
           userLogin: user.login,
@@ -57,10 +79,39 @@ export class AuthService {
 
     const token = await this.getDeviceAuthClient().authorize(["repo"])
     const user = await this.githubClient.getAuthenticatedUser(token)
-    await this.credentialStore.set(key, token)
+    await this.persistToken(owner, user.login, token)
     return {
       token,
       userLogin: user.login,
+    }
+  }
+
+  private keysForLookup(owner: string): string[] {
+    return [
+      ...new Set([
+        credentialKeyForGithubHost(),
+        credentialKeyForGithubAccount(),
+        credentialKeyForOwner(owner),
+        legacyCredentialKeyForGithubHost(),
+        legacyCredentialKeyForGithubAccount(),
+        legacyCredentialKeyForOwner(owner),
+      ]),
+    ]
+  }
+
+  private async persistToken(owner: string, userLogin: string, token: string): Promise<void> {
+    const keys = new Set([
+      credentialKeyForGithubHost(),
+      credentialKeyForGithubAccount(),
+      credentialKeyForOwner(owner),
+      credentialKeyForOwner(userLogin),
+    ])
+
+    for (const key of keys) {
+      if (authDebugEnabled()) {
+        console.error(`[seed-cloud][auth-debug] storing credential under key: ${key}`)
+      }
+      await this.credentialStore.set(key, token)
     }
   }
 
