@@ -61,11 +61,11 @@ export class GithubDeviceAuthorizationClient implements DeviceAuthorizationClien
       has_direct_link: Boolean(verificationUriComplete),
       expires_in_seconds: expiresIn,
     })
-    console.error("GitHub authentication required.")
-    console.error(`Open: ${verificationUri}`)
-    console.error(`Code: ${userCode}`)
+    console.info("GitHub authentication required.")
+    console.info(`Open: ${verificationUri}`)
+    console.info(`Code: ${userCode}`)
     if (verificationUriComplete) {
-      console.error(`Direct link: ${verificationUriComplete}`)
+      console.info(`Direct link: ${verificationUriComplete}`)
     }
 
     const deadline = Date.now() + expiresIn * 1000

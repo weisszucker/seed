@@ -75,9 +75,6 @@ Suggested metadata fields:
 
 ## 9. User Messages and Logs
 User-facing messages:
-- `Cloud mode ready`
-- `Exit sync: no changes`
-- `Exit sync: committed`
 - `Exit sync: push retry X/5`
 - `Exit sync failed; local changes discarded`
 

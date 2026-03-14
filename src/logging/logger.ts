@@ -194,7 +194,7 @@ export class FileLogSink implements LogSink {
 
     this.pending = next.catch((error) => {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(`[seed-log] failed to write diagnostic log: ${message}`)
+      console.info(`[seed-log] failed to write diagnostic log: ${message}`)
     })
 
     await next

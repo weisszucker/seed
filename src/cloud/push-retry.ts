@@ -13,7 +13,7 @@ export interface RetryPrompt {
 export class ConsoleRetryPrompt implements RetryPrompt {
   async askPushFailure(error: string): Promise<RetryDecision> {
     while (true) {
-      console.error(`[seed-cloud] Push failed: ${error}`)
+      console.info(`[seed-cloud] Push failed: ${error}`)
       const answer = prompt("Choose action: [r]etry or [e]xit without save:")?.trim().toLowerCase() ?? ""
       if (answer === "r" || answer === "retry") {
         return RetryDecision.RETRY
