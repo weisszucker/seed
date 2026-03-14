@@ -1,7 +1,7 @@
 import { startSeedApp } from "../app/start"
 import { AuthService } from "./auth"
 import { RepoBootstrapper } from "./bootstrap"
-import { NodeCommandRunner, type CommandRunner } from "./command"
+import { createGithubAuthenticatedRunner, NodeCommandRunner, type CommandRunner } from "./command"
 import { createCredentialStore, type CredentialStore } from "./credentials"
 import type { DeviceAuthorizationClient } from "./device-flow"
 import { ExitCommitService } from "./exit-commit"
@@ -21,12 +21,13 @@ type CloudModeOptions = {
 }
 
 export async function runCloudMode(owner: string, repo: string, options: CloudModeOptions = {}): Promise<void> {
-  const runner = options.commandRunner ?? new NodeCommandRunner()
+  const baseRunner = options.commandRunner ?? new NodeCommandRunner()
   const githubClient = options.githubClient ?? new GithubClient()
-  const credentialStore = options.credentialStore ?? (await createCredentialStore(runner))
+  const credentialStore = options.credentialStore ?? (await createCredentialStore(baseRunner))
 
   const auth = new AuthService(credentialStore, githubClient, options.deviceAuthClient)
   const session = await auth.ensureAuthenticated(owner)
+  const runner = createGithubAuthenticatedRunner(baseRunner, session.token)
 
   const bootstrapper = new RepoBootstrapper(runner, githubClient)
   const repoContext = await bootstrapper.ensureReady(owner, repo, session.token, session.userLogin)
