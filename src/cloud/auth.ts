@@ -12,17 +12,10 @@ export interface GithubIdentityProvider {
   getAuthenticatedUser(token: string): Promise<GithubUser>
 }
 
-export function resolveGithubOauthClientIdFromEnv(env: NodeJS.ProcessEnv = process.env): string {
-  const clientId = env.SEED_GITHUB_OAUTH_CLIENT_ID ?? env.GITHUB_OAUTH_CLIENT_ID
-  if (!clientId || clientId.trim().length === 0) {
-    throw new Error(
-      [
-        "Missing GitHub OAuth client ID.",
-        "Set SEED_GITHUB_OAUTH_CLIENT_ID (or GITHUB_OAUTH_CLIENT_ID) and retry.",
-      ].join(" "),
-    )
-  }
-  return clientId.trim()
+export const DEFAULT_GITHUB_OAUTH_CLIENT_ID = "Ov23lixUX18kHxF16jdz"
+
+export function resolveGithubOauthClientId(): string {
+  return DEFAULT_GITHUB_OAUTH_CLIENT_ID
 }
 
 export class AuthService {
@@ -76,7 +69,7 @@ export class AuthService {
       return this.deviceAuthClient
     }
 
-    const clientId = resolveGithubOauthClientIdFromEnv()
+    const clientId = resolveGithubOauthClientId()
     this.deviceAuthClient = new GithubDeviceAuthorizationClient(clientId)
     return this.deviceAuthClient
   }
