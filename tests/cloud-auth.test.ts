@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test"
 
-import { AuthService, resolveGithubOauthClientIdFromEnv, type GithubIdentityProvider } from "../src/cloud/auth"
+import {
+  AuthService,
+  DEFAULT_GITHUB_OAUTH_CLIENT_ID,
+  resolveGithubOauthClientId,
+  type GithubIdentityProvider,
+} from "../src/cloud/auth"
 import type { CredentialStore } from "../src/cloud/credentials"
 import type { DeviceAuthorizationClient } from "../src/cloud/device-flow"
 
@@ -66,12 +71,8 @@ class FakeDeviceAuthClient implements DeviceAuthorizationClient {
 }
 
 describe("cloud auth service", () => {
-  test("reads oauth client id from env", () => {
-    expect(resolveGithubOauthClientIdFromEnv({ SEED_GITHUB_OAUTH_CLIENT_ID: "abc123" })).toBe("abc123")
-  })
-
-  test("throws when oauth client id env is missing", () => {
-    expect(() => resolveGithubOauthClientIdFromEnv({})).toThrow("Missing GitHub OAuth client ID")
+  test("uses the bundled oauth client id", () => {
+    expect(resolveGithubOauthClientId()).toBe(DEFAULT_GITHUB_OAUTH_CLIENT_ID)
   })
 
   test("reuses cached valid token and skips device flow", async () => {
