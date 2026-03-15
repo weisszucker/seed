@@ -1,10 +1,11 @@
 import { startSeedApp } from "./app/start"
+import { LastCloudRepoStore, type CloudRepoRef } from "./cloud/last-repo"
 import { runCloudMode } from "./cloud/mode"
 
 export type ParsedCommand =
   | { type: "local" }
   | { type: "help" }
-  | { type: "cloud"; owner: string; repo: string }
+  | { type: "cloud"; owner?: string; repo?: string }
 
 export class CliUsageError extends Error {}
 
@@ -30,7 +31,7 @@ export function usageText(): string {
   return [
     "Usage:",
     "  seed",
-    "  seed cloud <owner>/<repo>",
+    "  seed cloud [<owner>/<repo>]",
     "  seed --help",
   ].join("\n")
 }
@@ -46,8 +47,11 @@ export function parseCliArgs(args: string[]): ParsedCommand {
   }
 
   if (first === "cloud") {
-    if (!second || rest.length > 0) {
-      throw new CliUsageError(`Expected exactly one repo slug.\n\n${usageText()}`)
+    if (rest.length > 0) {
+      throw new CliUsageError(`Expected at most one repo slug.\n\n${usageText()}`)
+    }
+    if (!second) {
+      return { type: "cloud" }
     }
     const parsed = parseRepoSlug(second)
     if (!parsed) {
@@ -62,6 +66,10 @@ export function parseCliArgs(args: string[]): ParsedCommand {
 type CliRunOptions = {
   startLocal?: () => Promise<void>
   startCloud?: (owner: string, repo: string) => Promise<void>
+  cloudRepoStore?: {
+    load: () => Promise<CloudRepoRef | null>
+    save: (repo: CloudRepoRef) => Promise<void>
+  }
   writeStdout?: (message: string) => void
   writeStderr?: (message: string) => void
 }
@@ -69,6 +77,7 @@ type CliRunOptions = {
 export async function runCli(args: string[], options: CliRunOptions = {}): Promise<void> {
   const startLocal = options.startLocal ?? (() => startSeedApp())
   const startCloud = options.startCloud ?? ((owner: string, repo: string) => runCloudMode(owner, repo))
+  const cloudRepoStore = options.cloudRepoStore ?? new LastCloudRepoStore()
   const writeStdout = options.writeStdout ?? ((message: string) => process.stdout.write(message))
   const writeStderr = options.writeStderr ?? ((message: string) => process.stderr.write(message))
 
@@ -82,7 +91,20 @@ export async function runCli(args: string[], options: CliRunOptions = {}): Promi
       await startLocal()
       return
     }
-    await startCloud(command.owner, command.repo)
+    const repo =
+      typeof command.owner === "string" && typeof command.repo === "string"
+        ? { owner: command.owner, repo: command.repo }
+        : await cloudRepoStore.load()
+
+    if (!repo) {
+      throw new CliUsageError(`No previous cloud repo found. Run "seed cloud <owner>/<repo>" first.\n\n${usageText()}`)
+    }
+
+    if (typeof command.owner === "string" && typeof command.repo === "string") {
+      await cloudRepoStore.save(repo)
+    }
+
+    await startCloud(repo.owner, repo.repo)
   } catch (error) {
     if (error instanceof CliUsageError) {
       writeStderr(`${error.message}\n`)
