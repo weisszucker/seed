@@ -109,4 +109,80 @@ describe("unsaved-change prompt gating", () => {
     expect(result.state.statusMessage).toBe("Ready")
     expect(result.effects).toEqual([])
   })
+
+  test("create path request opens create modal", () => {
+    const state = reduceEvent(createInitialState("/tmp"), {
+      type: "FILE_LOADED",
+      path: "/tmp/current.md",
+      text: "hello",
+    }).state
+    const result = reduceEvent(state, { type: "REQUEST_CREATE_PATH" })
+
+    expect(result.state.modal).toEqual({ kind: "create_path", pathInput: "current.md" })
+    expect(result.state.statusMessage).toBe("Create file or folder")
+  })
+
+  test("create path submission rejects paths outside root", () => {
+    const state = reduceEvent(createInitialState("/tmp/work"), { type: "REQUEST_CREATE_PATH" }).state
+    const updated = reduceEvent(state, {
+      type: "CREATE_PATH_INPUT_UPDATED",
+      path: "../outside.md",
+    }).state
+
+    const result = reduceEvent(updated, { type: "CREATE_PATH_SUBMITTED" })
+    expect(result.state.statusMessage).toBe("Path must stay within root")
+    expect(result.effects).toEqual([])
+  })
+
+  test("move path submission resolves trailing slash as destination folder", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_LOADED",
+      path: "/tmp/work/docs/note.md",
+      text: "hello",
+    }).state
+    const state = reduceEvent(initial, { type: "REQUEST_MOVE_PATH" }).state
+    expect(state.modal).toEqual({
+      kind: "move_path",
+      sourcePathInput: "docs/note.md",
+      destinationPathInput: "",
+      focusedField: "source",
+    })
+
+    const withSource = reduceEvent(state, {
+      type: "MOVE_SOURCE_PATH_UPDATED",
+      path: "docs/note.md",
+    }).state
+    const withDestination = reduceEvent(withSource, {
+      type: "MOVE_DESTINATION_PATH_UPDATED",
+      path: "archive/",
+    }).state
+
+    const result = reduceEvent(withDestination, { type: "MOVE_PATH_SUBMITTED" })
+    expect(result.effects).toEqual([
+      {
+        type: "MOVE_PATH",
+        rootPath: "/tmp/work",
+        sourcePath: "/tmp/work/docs/note.md",
+        destinationPath: "/tmp/work/archive/note.md",
+      },
+    ])
+  })
+
+  test("moved open document path is remapped", () => {
+    const initial = createInitialState("/tmp/work")
+    const loaded = reduceEvent(initial, {
+      type: "FILE_LOADED",
+      path: "/tmp/work/docs/note.md",
+      text: "hello",
+    }).state
+
+    const result = reduceEvent(loaded, {
+      type: "PATH_MOVED",
+      sourcePath: "/tmp/work/docs",
+      destinationPath: "/tmp/work/archive/docs",
+    })
+
+    expect(result.state.document.path).toBe("/tmp/work/archive/docs/note.md")
+    expect(result.state.selectedPath).toBe("/tmp/work/archive/docs/note.md")
+  })
 })

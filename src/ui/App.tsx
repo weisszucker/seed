@@ -6,6 +6,7 @@ import { basename } from "node:path"
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
 import { EditorPane } from "./components/EditorPane"
+import { MovePathModal } from "./components/MovePathModal"
 import { SaveAsModal } from "./components/SaveAsModal"
 import { SidebarPane } from "./components/SidebarPane"
 import { ShortcutHelpModal } from "./components/ShortcutHelpModal"
@@ -33,6 +34,8 @@ const commandMap: Record<CommandName, AppEvent> = {
   save: { type: "REQUEST_SAVE" },
   saveAs: { type: "REQUEST_SAVE_AS" },
   newFile: { type: "REQUEST_NEW_FILE" },
+  createPath: { type: "REQUEST_CREATE_PATH" },
+  movePath: { type: "REQUEST_MOVE_PATH" },
   toggleSidebar: { type: "TOGGLE_SIDEBAR" },
   showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
 }
@@ -72,6 +75,21 @@ function handleModalKeyboardEvent(
   }
 
   if (state.modal?.kind === "save_as") {
+    return "pass_through"
+  }
+
+  if (state.modal?.kind === "create_path") {
+    return "pass_through"
+  }
+
+  if (state.modal?.kind === "move_path") {
+    if (key.name === "tab" || key.name === "up" || key.name === "down") {
+      dispatch({
+        type: "MOVE_PATH_FOCUS_CHANGED",
+        field: state.modal.focusedField === "source" ? "destination" : "source",
+      })
+      return "consume"
+    }
     return "pass_through"
   }
 
@@ -191,6 +209,8 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
+  const createPathModal = state.modal?.kind === "create_path" ? state.modal : null
+  const movePathModal = state.modal?.kind === "move_path" ? state.modal : null
   const shortcutHelpModal = state.modal?.kind === "shortcut_help" ? state.modal : null
   const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
   const leaderHint = leaderPending ? `Leader: ${formatKeybinding(state.leaderKey, "[key]")}` : null
@@ -237,6 +257,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       >
         <box width={state.sidebarVisible ? uiLayout.editorWidthPercent : "100%"} marginLeft={uiLayout.panelOuterMarginX} marginRight={uiLayout.panelOuterMarginX}>
           <StatusBar
+            cwd={state.cwd}
             path={state.document.path}
             isDirty={state.document.isDirty}
             statusMessage={state.statusMessage}
@@ -257,9 +278,35 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
 
       {saveAsModal ? (
         <SaveAsModal
+          title="Save As"
           pathInput={saveAsModal.pathInput}
+          placeholder="Enter path from workspace root"
           onPathChange={(path) => runtime.dispatch({ type: "SAVE_AS_PATH_UPDATED", path })}
           onSubmit={() => runtime.dispatch({ type: "SAVE_AS_SUBMITTED" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
+      ) : null}
+
+      {createPathModal ? (
+        <SaveAsModal
+          title="Create"
+          pathInput={createPathModal.pathInput}
+          placeholder="Enter path from workspace root"
+          onPathChange={(path) => runtime.dispatch({ type: "CREATE_PATH_INPUT_UPDATED", path })}
+          onSubmit={() => runtime.dispatch({ type: "CREATE_PATH_SUBMITTED" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
+      ) : null}
+
+      {movePathModal ? (
+        <MovePathModal
+          sourcePathInput={movePathModal.sourcePathInput}
+          destinationPathInput={movePathModal.destinationPathInput}
+          focusedField={movePathModal.focusedField}
+          onSourcePathChange={(path) => runtime.dispatch({ type: "MOVE_SOURCE_PATH_UPDATED", path })}
+          onDestinationPathChange={(path) => runtime.dispatch({ type: "MOVE_DESTINATION_PATH_UPDATED", path })}
+          onFocusChange={(field) => runtime.dispatch({ type: "MOVE_PATH_FOCUS_CHANGED", field })}
+          onSubmit={() => runtime.dispatch({ type: "MOVE_PATH_SUBMITTED" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}

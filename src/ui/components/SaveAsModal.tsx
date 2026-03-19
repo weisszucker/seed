@@ -1,13 +1,15 @@
 import { uiColors, uiLayout } from "../../theme"
 
 type SaveAsModalProps = {
+  title: string
   pathInput: string
+  placeholder: string
   onPathChange: (path: string) => void
   onSubmit: () => void
   onCancel: () => void
 }
 
-export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: SaveAsModalProps) {
+export function SaveAsModal({ title, pathInput, placeholder, onPathChange, onSubmit, onCancel }: SaveAsModalProps) {
   return (
     <box
       position="absolute"
@@ -31,7 +33,7 @@ export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: Sav
         flexDirection="column"
       >
         <box flexDirection="row" alignItems="center">
-          <text fg={uiColors.accent}>Save As</text>
+          <text fg={uiColors.accent}>{title}</text>
           <box flexGrow={1} />
           <box paddingLeft={0} paddingRight={0} onMouseDown={onCancel}>
             <text fg={uiColors.textMuted}>esc</text>
@@ -44,7 +46,7 @@ export function SaveAsModal({ pathInput, onPathChange, onSubmit, onCancel }: Sav
           onChange={onPathChange}
           onSubmit={onSubmit}
           focused
-          placeholder="Enter file path"
+          placeholder={placeholder}
           backgroundColor={uiColors.modalAccentBackground}
           textColor={uiColors.textPrimary}
           marginTop={uiLayout.modalHeaderBodyGap}
