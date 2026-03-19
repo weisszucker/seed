@@ -16,6 +16,16 @@ export type ModalState =
       kind: "save_as"
       pathInput: string
     }
+  | {
+      kind: "create_path"
+      pathInput: string
+    }
+  | {
+      kind: "move_path"
+      sourcePathInput: string
+      destinationPathInput: string
+      focusedField: "source" | "destination"
+    }
 
 export type FileNode = {
   name: string
@@ -36,6 +46,8 @@ export type KeybindingMap = {
   save: string
   saveAs: string
   newFile: string
+  createPath: string
+  movePath: string
   toggleSidebar: string
   showShortcutHelp: string
 }
@@ -59,6 +71,8 @@ export type AppEffect =
   | { type: "LOAD_FILE_TREE"; rootPath: string }
   | { type: "LOAD_FILE"; path: string }
   | { type: "SAVE_FILE"; path: string; text: string }
+  | { type: "CREATE_PATH"; rootPath: string; path: string; nodeType: "file" | "directory" }
+  | { type: "MOVE_PATH"; rootPath: string; sourcePath: string; destinationPath: string }
   | { type: "EXIT_APP" }
 
 export type AppEvent =
@@ -75,9 +89,17 @@ export type AppEvent =
   | { type: "REQUEST_QUIT" }
   | { type: "REQUEST_SAVE" }
   | { type: "REQUEST_SAVE_AS" }
+  | { type: "REQUEST_CREATE_PATH" }
+  | { type: "REQUEST_MOVE_PATH" }
   | { type: "REQUEST_SHOW_SHORTCUT_HELP" }
   | { type: "SAVE_AS_PATH_UPDATED"; path: string }
   | { type: "SAVE_AS_SUBMITTED" }
+  | { type: "CREATE_PATH_INPUT_UPDATED"; path: string }
+  | { type: "CREATE_PATH_SUBMITTED" }
+  | { type: "MOVE_SOURCE_PATH_UPDATED"; path: string }
+  | { type: "MOVE_DESTINATION_PATH_UPDATED"; path: string }
+  | { type: "MOVE_PATH_FOCUS_CHANGED"; field: "source" | "destination" }
+  | { type: "MOVE_PATH_SUBMITTED" }
   | { type: "PROMPT_CHOOSE_SAVE" }
   | { type: "PROMPT_CHOOSE_DONT_SAVE" }
   | { type: "PROMPT_SELECT_PREV" }
@@ -88,6 +110,10 @@ export type AppEvent =
   | { type: "FILE_LOAD_FAILED"; path: string; message: string }
   | { type: "FILE_SAVED"; path: string }
   | { type: "FILE_SAVE_FAILED"; message: string }
+  | { type: "PATH_CREATED"; path: string; nodeType: "file" | "directory" }
+  | { type: "PATH_CREATE_FAILED"; message: string }
+  | { type: "PATH_MOVED"; sourcePath: string; destinationPath: string }
+  | { type: "PATH_MOVE_FAILED"; message: string }
 
 export const DEFAULT_LEADER_KEY = "ctrl+l"
 
@@ -96,6 +122,8 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   save: "s",
   saveAs: "shift+s",
   newFile: "n",
+  createPath: "c",
+  movePath: "m",
   toggleSidebar: "l",
   showShortcutHelp: "k",
 }

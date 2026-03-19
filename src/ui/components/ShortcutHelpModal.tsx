@@ -12,6 +12,8 @@ const shortcutRows: Array<{ label: string; command: keyof KeybindingMap }> = [
   { label: "Save", command: "save" },
   { label: "Save As", command: "saveAs" },
   { label: "New File", command: "newFile" },
+  { label: "Create Path", command: "createPath" },
+  { label: "Move Path", command: "movePath" },
   { label: "Toggle Sidebar", command: "toggleSidebar" },
   { label: "Show Shortcut Help", command: "showShortcutHelp" },
 ]

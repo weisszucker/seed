@@ -78,4 +78,34 @@ describe("keybinding matching", () => {
 
     expect(resolution).toEqual({ type: "command", command: "showShortcutHelp" })
   })
+
+  test("matches c for createPath after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "c",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "createPath" })
+  })
+
+  test("matches m for movePath after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "m",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "movePath" })
+  })
 })

@@ -2,7 +2,7 @@ import type { CliRenderer } from "@opentui/core"
 
 import type { AppEffect, AppEvent } from "../core/types"
 import { loadUserConfig } from "./config"
-import { loadFileTree, readTextFile, writeTextFile } from "./fs"
+import { createPath, loadFileTree, movePath, readTextFile, writeTextFile } from "./fs"
 
 export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promise<AppEvent[]> {
   try {
@@ -27,6 +27,16 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
         return [{ type: "FILE_SAVED", path: effect.path }]
       }
 
+      case "CREATE_PATH": {
+        await createPath(effect.path, effect.nodeType)
+        return [{ type: "PATH_CREATED", path: effect.path, nodeType: effect.nodeType }]
+      }
+
+      case "MOVE_PATH": {
+        await movePath(effect.sourcePath, effect.destinationPath)
+        return [{ type: "PATH_MOVED", sourcePath: effect.sourcePath, destinationPath: effect.destinationPath }]
+      }
+
       case "EXIT_APP":
         renderer.destroy()
         return []
@@ -48,6 +58,12 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
     }
     if (effect.type === "SAVE_FILE") {
       return [{ type: "FILE_SAVE_FAILED", message: `Failed to save file: ${message}` }]
+    }
+    if (effect.type === "CREATE_PATH") {
+      return [{ type: "PATH_CREATE_FAILED", message: `Failed to create path: ${message}` }]
+    }
+    if (effect.type === "MOVE_PATH") {
+      return [{ type: "PATH_MOVE_FAILED", message: `Failed to move path: ${message}` }]
     }
 
     return []

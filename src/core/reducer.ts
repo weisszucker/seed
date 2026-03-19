@@ -1,5 +1,5 @@
 import type { AppEffect, AppEvent, EditorState, ModalState, PendingAction } from "./types"
-import { isAbsolute, resolve } from "node:path"
+import { basename, isAbsolute, join, relative, resolve } from "node:path"
 
 type ReduceResult = {
   state: EditorState
@@ -18,13 +18,17 @@ function withDocumentText(state: EditorState, text: string): EditorState {
   }
 }
 
+function formatPathForDisplay(rootPath: string, targetPath: string): string {
+  return toWorkspaceRelativePath(rootPath, targetPath) ?? targetPath
+}
+
 function executePendingAction(state: EditorState, action: PendingAction): ReduceResult {
   if (action.type === "open_file") {
     return {
       state: {
         ...state,
         modal: null,
-        statusMessage: `Opening ${action.path}`,
+        statusMessage: `Opening ${formatPathForDisplay(state.cwd, action.path)}`,
       },
       effects: [{ type: "LOAD_FILE", path: action.path }],
     }
@@ -95,10 +99,20 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "PROMPT_CANCEL",
     "SAVE_AS_PATH_UPDATED",
     "SAVE_AS_SUBMITTED",
+    "CREATE_PATH_INPUT_UPDATED",
+    "CREATE_PATH_SUBMITTED",
+    "MOVE_SOURCE_PATH_UPDATED",
+    "MOVE_DESTINATION_PATH_UPDATED",
+    "MOVE_PATH_FOCUS_CHANGED",
+    "MOVE_PATH_SUBMITTED",
     "FILE_SAVED",
     "FILE_SAVE_FAILED",
     "FILE_LOADED",
     "FILE_LOAD_FAILED",
+    "PATH_CREATED",
+    "PATH_CREATE_FAILED",
+    "PATH_MOVED",
+    "PATH_MOVE_FAILED",
     "CONFIG_LOADED",
     "CONFIG_LOAD_FAILED",
     "FILE_TREE_LOADED",
@@ -108,10 +122,10 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
   return !allowed.has(event.type)
 }
 
-function toSaveAsModal(currentPath: string | null): ModalState {
+function toSaveAsModal(rootPath: string, currentPath: string | null): ModalState {
   return {
     kind: "save_as",
-    pathInput: currentPath ?? "",
+    pathInput: toWorkspaceRelativePath(rootPath, currentPath) ?? "",
   }
 }
 
@@ -121,11 +135,101 @@ function toShortcutHelpModal(): ModalState {
   }
 }
 
-function resolveDocumentPath(cwd: string, inputPath: string): string {
-  if (isAbsolute(inputPath)) {
-    return inputPath
+function toCreatePathModal(rootPath: string, currentPath: string | null): ModalState {
+  return {
+    kind: "create_path",
+    pathInput: toWorkspaceRelativePath(rootPath, currentPath) ?? "",
   }
-  return resolve(cwd, inputPath)
+}
+
+function toMovePathModal(rootPath: string, currentPath: string | null): ModalState {
+  return {
+    kind: "move_path",
+    sourcePathInput: toWorkspaceRelativePath(rootPath, currentPath) ?? "",
+    destinationPathInput: "",
+    focusedField: "source",
+  }
+}
+
+function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
+  const pathFromRoot = relative(rootPath, targetPath)
+  if (pathFromRoot === "") {
+    return false
+  }
+  return !pathFromRoot.startsWith("..") && !isAbsolute(pathFromRoot)
+}
+
+function toWorkspaceRelativePath(rootPath: string, targetPath: string | null): string | null {
+  if (!targetPath) {
+    return null
+  }
+
+  if (!rootPath) {
+    return targetPath
+  }
+
+  if (!isPathWithinRoot(rootPath, targetPath)) {
+    return null
+  }
+
+  return relative(rootPath, targetPath)
+}
+
+function resolveWorkspacePath(rootPath: string, inputPath: string): string | null {
+  if (isAbsolute(inputPath)) {
+    return null
+  }
+
+  const resolvedPath = resolve(rootPath, inputPath)
+  return isPathWithinRoot(rootPath, resolvedPath) ? resolvedPath : null
+}
+
+function isSameOrDescendantPath(parentPath: string, targetPath: string): boolean {
+  const pathFromParent = relative(parentPath, targetPath)
+  return pathFromParent === "" || (!pathFromParent.startsWith("..") && !isAbsolute(pathFromParent))
+}
+
+function remapMovedPath(currentPath: string | null, sourcePath: string, destinationPath: string): string | null {
+  if (!currentPath || !isSameOrDescendantPath(sourcePath, currentPath)) {
+    return currentPath
+  }
+
+  const suffix = relative(sourcePath, currentPath)
+  if (!suffix) {
+    return destinationPath
+  }
+
+  return join(destinationPath, suffix)
+}
+
+function remapExpandedDirs(
+  expandedDirs: Record<string, boolean>,
+  sourcePath: string,
+  destinationPath: string,
+): Record<string, boolean> {
+  const nextEntries: Array<[string, boolean]> = []
+  for (const [path, expanded] of Object.entries(expandedDirs)) {
+    nextEntries.push([remapMovedPath(path, sourcePath, destinationPath) ?? path, expanded])
+  }
+  return Object.fromEntries(nextEntries)
+}
+
+function supportsBackslashSeparator(): boolean {
+  return process.platform === "win32"
+}
+
+function hasDirectorySuffix(inputPath: string): boolean {
+  return supportsBackslashSeparator()
+    ? inputPath.endsWith("/") || inputPath.endsWith("\\")
+    : inputPath.endsWith("/")
+}
+
+function stripTrailingSeparators(inputPath: string): string {
+  let normalized = inputPath
+  while (normalized.endsWith("/") || (supportsBackslashSeparator() && normalized.endsWith("\\"))) {
+    normalized = normalized.slice(0, -1)
+  }
+  return normalized
 }
 
 export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
@@ -236,30 +340,30 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       if (!state.document.isDirty && state.document.path) {
         return {
           state: {
-          ...state,
-          statusMessage: "No changes to save",
-          postSaveAction: null,
-        },
-        effects: [],
-      }
+            ...state,
+            statusMessage: "No changes to save",
+            postSaveAction: null,
+          },
+          effects: [],
+        }
       }
 
       if (!state.document.path) {
         return {
           state: {
-          ...state,
-          modal: toSaveAsModal(state.document.path),
-          postSaveAction: null,
-          statusMessage: "Enter path to save",
-        },
-        effects: [],
+            ...state,
+            modal: toSaveAsModal(state.cwd, state.document.path),
+            postSaveAction: null,
+            statusMessage: "Enter path to save",
+          },
+          effects: [],
         }
       }
 
       return {
         state: {
           ...state,
-          statusMessage: `Saving ${state.document.path}`,
+          statusMessage: `Saving ${formatPathForDisplay(state.cwd, state.document.path)}`,
           postSaveAction: null,
         },
         effects: [
@@ -276,9 +380,31 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       return {
         state: {
           ...state,
-          modal: toSaveAsModal(state.document.path),
+          modal: toSaveAsModal(state.cwd, state.document.path),
           postSaveAction: null,
           statusMessage: "Save as",
+        },
+        effects: [],
+      }
+
+    case "REQUEST_CREATE_PATH":
+      return {
+        state: {
+          ...state,
+          modal: toCreatePathModal(state.cwd, state.document.path),
+          postSaveAction: null,
+          statusMessage: "Create file or folder",
+        },
+        effects: [],
+      }
+
+    case "REQUEST_MOVE_PATH":
+      return {
+        state: {
+          ...state,
+          modal: toMovePathModal(state.cwd, state.document.path),
+          postSaveAction: null,
+          statusMessage: "Move file or folder",
         },
         effects: [],
       }
@@ -348,7 +474,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         return {
           state: {
             ...state,
-            modal: toSaveAsModal(state.document.path),
+            modal: toSaveAsModal(state.cwd, state.document.path),
             postSaveAction: state.modal.pendingAction,
             statusMessage: "Enter path before continuing",
           },
@@ -384,6 +510,217 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         effects: [],
       }
 
+    case "CREATE_PATH_INPUT_UPDATED": {
+      if (!state.modal || state.modal.kind !== "create_path") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            pathInput: event.path,
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "CREATE_PATH_SUBMITTED": {
+      if (!state.modal || state.modal.kind !== "create_path") {
+        return { state, effects: [] }
+      }
+
+      const rawPath = state.modal.pathInput.trim()
+      if (!rawPath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path cannot be empty",
+          },
+          effects: [],
+        }
+      }
+
+      const nodeType = hasDirectorySuffix(rawPath) ? "directory" : "file"
+      const normalizedInput = stripTrailingSeparators(rawPath)
+      if (!normalizedInput) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      const resolvedPath = resolveWorkspacePath(state.cwd, normalizedInput)
+      if (!resolvedPath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      return {
+        state: {
+          ...state,
+          statusMessage: `Creating ${formatPathForDisplay(state.cwd, resolvedPath)}`,
+        },
+        effects: [
+          {
+            type: "CREATE_PATH",
+            rootPath: state.cwd,
+            path: resolvedPath,
+            nodeType,
+          },
+        ],
+      }
+    }
+
+    case "MOVE_SOURCE_PATH_UPDATED": {
+      if (!state.modal || state.modal.kind !== "move_path") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            sourcePathInput: event.path,
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "MOVE_DESTINATION_PATH_UPDATED": {
+      if (!state.modal || state.modal.kind !== "move_path") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            destinationPathInput: event.path,
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "MOVE_PATH_FOCUS_CHANGED": {
+      if (!state.modal || state.modal.kind !== "move_path") {
+        return { state, effects: [] }
+      }
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            focusedField: event.field,
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "MOVE_PATH_SUBMITTED": {
+      if (!state.modal || state.modal.kind !== "move_path") {
+        return { state, effects: [] }
+      }
+
+      const rawSourcePath = state.modal.sourcePathInput.trim()
+      const rawDestinationPath = state.modal.destinationPathInput.trim()
+      if (!rawSourcePath || !rawDestinationPath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Source and destination are required",
+          },
+          effects: [],
+        }
+      }
+
+      const normalizedSourceInput = stripTrailingSeparators(rawSourcePath)
+      const destinationIsDirectory = hasDirectorySuffix(rawDestinationPath)
+      const normalizedDestinationInput = stripTrailingSeparators(rawDestinationPath)
+      if (!normalizedSourceInput || !normalizedDestinationInput) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      const sourcePath = resolveWorkspacePath(state.cwd, normalizedSourceInput)
+      if (!sourcePath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      const resolvedDestination = resolveWorkspacePath(state.cwd, normalizedDestinationInput)
+      if (!resolvedDestination) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      const destinationPath = destinationIsDirectory
+        ? join(resolvedDestination, basename(sourcePath))
+        : resolvedDestination
+
+      if (!isPathWithinRoot(state.cwd, destinationPath)) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
+
+      if (sourcePath === destinationPath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Source and destination must differ",
+          },
+          effects: [],
+        }
+      }
+
+      return {
+        state: {
+          ...state,
+          statusMessage: `Moving ${formatPathForDisplay(state.cwd, sourcePath)}`,
+        },
+        effects: [
+          {
+            type: "MOVE_PATH",
+            rootPath: state.cwd,
+            sourcePath,
+            destinationPath,
+          },
+        ],
+      }
+    }
+
     case "SAVE_AS_PATH_UPDATED": {
       if (!state.modal || state.modal.kind !== "save_as") {
         return { state, effects: [] }
@@ -416,12 +753,21 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         }
       }
 
-      const resolvedPath = resolveDocumentPath(state.cwd, normalized)
+      const resolvedPath = resolveWorkspacePath(state.cwd, normalized)
+      if (!resolvedPath) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Path must stay within root",
+          },
+          effects: [],
+        }
+      }
 
       return {
         state: {
           ...state,
-          statusMessage: `Saving ${resolvedPath}`,
+          statusMessage: `Saving ${formatPathForDisplay(state.cwd, resolvedPath)}`,
         },
         effects: [
           {
@@ -432,6 +778,50 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         ],
       }
     }
+
+    case "PATH_CREATED":
+      return {
+        state: {
+          ...state,
+          modal: null,
+          statusMessage: `${event.nodeType === "directory" ? "Created folder" : "Created file"} ${formatPathForDisplay(state.cwd, event.path)}`,
+        },
+        effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
+      }
+
+    case "PATH_CREATE_FAILED":
+      return {
+        state: {
+          ...state,
+          statusMessage: event.message,
+        },
+        effects: [],
+      }
+
+    case "PATH_MOVED":
+      return {
+        state: {
+          ...state,
+          modal: null,
+          selectedPath: remapMovedPath(state.selectedPath, event.sourcePath, event.destinationPath),
+          expandedDirs: remapExpandedDirs(state.expandedDirs, event.sourcePath, event.destinationPath),
+          document: {
+            ...state.document,
+            path: remapMovedPath(state.document.path, event.sourcePath, event.destinationPath),
+          },
+          statusMessage: `Moved ${formatPathForDisplay(state.cwd, event.sourcePath)} to ${formatPathForDisplay(state.cwd, event.destinationPath)}`,
+        },
+        effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
+      }
+
+    case "PATH_MOVE_FAILED":
+      return {
+        state: {
+          ...state,
+          statusMessage: event.message,
+        },
+        effects: [],
+      }
 
     case "FILE_LOADED":
       return {
@@ -445,7 +835,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
             savedText: event.text,
             isDirty: false,
           },
-          statusMessage: `Loaded ${event.path}`,
+          statusMessage: `Loaded ${formatPathForDisplay(state.cwd, event.path)}`,
         },
         effects: [],
       }
@@ -469,7 +859,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           isDirty: false,
         },
         selectedPath: event.path,
-        statusMessage: `Saved ${event.path}`,
+        statusMessage: `Saved ${formatPathForDisplay(state.cwd, event.path)}`,
         modal: null,
         postSaveAction: null,
       }

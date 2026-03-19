@@ -13,7 +13,7 @@ describe("smoke flows", () => {
 
     const withPath = reduceEvent(saveRequest.state, {
       type: "SAVE_AS_PATH_UPDATED",
-      path: "/tmp/hello.md",
+      path: "hello.md",
     }).state
 
     const submitted = reduceEvent(withPath, { type: "SAVE_AS_SUBMITTED" })
@@ -28,6 +28,21 @@ describe("smoke flows", () => {
     const saved = reduceEvent(submitted.state, { type: "FILE_SAVED", path: "/tmp/hello.md" })
     expect(saved.state.document.path).toBe("/tmp/hello.md")
     expect(saved.state.document.isDirty).toBeFalse()
+  })
+
+  test("save flow rejects absolute save path input", () => {
+    const initial = createInitialState("/tmp/work")
+    const changed = reduceEvent(initial, { type: "EDITOR_TEXT_CHANGED", text: "hello" }).state
+
+    const saveRequest = reduceEvent(changed, { type: "REQUEST_SAVE" })
+    const withPath = reduceEvent(saveRequest.state, {
+      type: "SAVE_AS_PATH_UPDATED",
+      path: "/tmp/work/hello.md",
+    }).state
+
+    const submitted = reduceEvent(withPath, { type: "SAVE_AS_SUBMITTED" })
+    expect(submitted.state.statusMessage).toBe("Path must stay within root")
+    expect(submitted.effects).toEqual([])
   })
 
   test("untitled save flow resolves relative save path against cwd", () => {
@@ -101,6 +116,6 @@ describe("smoke flows", () => {
     }).state
 
     const result = reduceEvent(loaded, { type: "REQUEST_SAVE_AS" })
-    expect(result.state.modal?.kind).toBe("save_as")
+    expect(result.state.modal).toEqual({ kind: "save_as", pathInput: "file.md" })
   })
 })

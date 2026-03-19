@@ -49,6 +49,8 @@ The default leader key is `ctrl-l`.
 `ctrl-l q` for quitting.
 `ctrl-l s` / `ctrl-l shift+s` for saving / saving to.
 `ctrl-l n` for opening a new untitled file.
+`ctrl-l c` for creating a file or folder by path relative to the workspace root. A trailing platform path separator means folder creation.
+`ctrl-l m` for moving a file or folder by source and destination path relative to the workspace root.
 `ctrl-l l` for toggling the sidebar.
 `ctrl-l k` for showing shortcut help.
 

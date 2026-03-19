@@ -1,6 +1,6 @@
-import { readdir } from "node:fs/promises"
+import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises"
 import type { Dirent } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
 import type { FileNode } from "../core/types"
 
@@ -55,4 +55,33 @@ export async function readTextFile(path: string): Promise<string> {
 
 export async function writeTextFile(path: string, text: string): Promise<void> {
   await Bun.write(path, text)
+}
+
+export async function createPath(path: string, nodeType: "file" | "directory"): Promise<void> {
+  if (nodeType === "directory") {
+    await mkdir(dirname(path), { recursive: true })
+    await mkdir(path)
+    return
+  }
+
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, "", { flag: "wx" })
+}
+
+export async function movePath(sourcePath: string, destinationPath: string): Promise<void> {
+  await stat(sourcePath)
+
+  let destinationExists = true
+  try {
+    await stat(destinationPath)
+  } catch {
+    destinationExists = false
+  }
+
+  if (destinationExists) {
+    throw new Error("Destination already exists")
+  }
+
+  await mkdir(dirname(destinationPath), { recursive: true })
+  await rename(sourcePath, destinationPath)
 }
