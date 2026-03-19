@@ -78,4 +78,22 @@ describe("unsaved-change prompt gating", () => {
     expect(canceled.state.modal).toBeNull()
     expect(canceled.effects).toEqual([])
   })
+
+  test("shortcut help opens as a static modal", () => {
+    const state = createInitialState("/tmp")
+    const result = reduceEvent(state, { type: "REQUEST_SHOW_SHORTCUT_HELP" })
+
+    expect(result.state.modal).toEqual({ kind: "shortcut_help" })
+    expect(result.state.statusMessage).toBe("Shortcut help")
+    expect(result.effects).toEqual([])
+  })
+
+  test("escape closes shortcut help back to ready", () => {
+    const state = reduceEvent(createInitialState("/tmp"), { type: "REQUEST_SHOW_SHORTCUT_HELP" }).state
+    const result = reduceEvent(state, { type: "PROMPT_CANCEL" })
+
+    expect(result.state.modal).toBeNull()
+    expect(result.state.statusMessage).toBe("Ready")
+    expect(result.effects).toEqual([])
+  })
 })

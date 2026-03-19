@@ -18,4 +18,19 @@ describe("keybinding matching", () => {
 
     expect(command).toBe("saveAs")
   })
+
+  test("matches ctrl+k for showShortcutHelp", () => {
+    const command = commandFromKeyEvent(DEFAULT_KEYBINDINGS, {
+      name: "k",
+      ctrl: true,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(command).toBe("showShortcutHelp")
+  })
 })

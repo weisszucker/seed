@@ -115,6 +115,12 @@ function toSaveAsModal(currentPath: string | null): ModalState {
   }
 }
 
+function toShortcutHelpModal(): ModalState {
+  return {
+    kind: "shortcut_help",
+  }
+}
+
 function resolveDocumentPath(cwd: string, inputPath: string): string {
   if (isAbsolute(inputPath)) {
     return inputPath
@@ -276,6 +282,17 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         effects: [],
       }
 
+    case "REQUEST_SHOW_SHORTCUT_HELP":
+      return {
+        state: {
+          ...state,
+          modal: toShortcutHelpModal(),
+          postSaveAction: null,
+          statusMessage: "Shortcut help",
+        },
+        effects: [],
+      }
+
     case "PROMPT_CHOOSE_DONT_SAVE": {
       if (!state.modal || state.modal.kind !== "unsaved_changes") {
         return { state, effects: [] }
@@ -361,7 +378,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           ...state,
           modal: null,
           postSaveAction: null,
-          statusMessage: "Canceled",
+          statusMessage: state.modal?.kind === "shortcut_help" ? "Ready" : "Canceled",
         },
         effects: [],
       }
