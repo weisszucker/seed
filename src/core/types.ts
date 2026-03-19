@@ -47,6 +47,7 @@ export type EditorState = {
   expandedDirs: Record<string, boolean>
   selectedPath: string | null
   sidebarVisible: boolean
+  leaderKey: string
   keybindings: KeybindingMap
   modal: ModalState | null
   postSaveAction: PendingAction | null
@@ -63,7 +64,7 @@ export type AppEffect =
 export type AppEvent =
   | { type: "APP_STARTED" }
   | { type: "REQUEST_REFRESH_FILE_TREE" }
-  | { type: "CONFIG_LOADED"; keybindings: Partial<KeybindingMap> }
+  | { type: "CONFIG_LOADED"; leaderKey?: string; keybindings: Partial<KeybindingMap> }
   | { type: "CONFIG_LOAD_FAILED"; message: string }
   | { type: "FILE_TREE_LOADED"; nodes: FileNode[] }
   | { type: "FILE_TREE_LOAD_FAILED"; message: string }
@@ -88,13 +89,15 @@ export type AppEvent =
   | { type: "FILE_SAVED"; path: string }
   | { type: "FILE_SAVE_FAILED"; message: string }
 
+export const DEFAULT_LEADER_KEY = "ctrl+l"
+
 export const DEFAULT_KEYBINDINGS: KeybindingMap = {
-  quit: "ctrl+q",
-  save: "ctrl+s",
-  saveAs: "ctrl+shift+s",
-  newFile: "ctrl+n",
-  toggleSidebar: "ctrl+l",
-  showShortcutHelp: "ctrl+k",
+  quit: "q",
+  save: "s",
+  saveAs: "shift+s",
+  newFile: "n",
+  toggleSidebar: "l",
+  showShortcutHelp: "k",
 }
 
 export function createInitialState(cwd: string): EditorState {
@@ -110,6 +113,7 @@ export function createInitialState(cwd: string): EditorState {
     expandedDirs: {},
     selectedPath: null,
     sidebarVisible: true,
+    leaderKey: DEFAULT_LEADER_KEY,
     keybindings: DEFAULT_KEYBINDINGS,
     modal: null,
     postSaveAction: null,

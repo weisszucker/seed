@@ -17,6 +17,19 @@ function dirtyState() {
 }
 
 describe("unsaved-change prompt gating", () => {
+  test("config load updates leader key and bindings", () => {
+    const state = createInitialState("/tmp")
+    const result = reduceEvent(state, {
+      type: "CONFIG_LOADED",
+      leaderKey: "ctrl+b",
+      keybindings: { save: "w" },
+    })
+
+    expect(result.state.leaderKey).toBe("ctrl+b")
+    expect(result.state.keybindings.save).toBe("w")
+    expect(result.state.statusMessage).toBe("Config loaded")
+  })
+
   test("refresh request triggers file-tree reload effect", () => {
     const state = createInitialState("/tmp")
     const result = reduceEvent(state, { type: "REQUEST_REFRESH_FILE_TREE" })

@@ -156,6 +156,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       return {
         state: {
           ...state,
+          leaderKey: event.leaderKey ?? state.leaderKey,
           keybindings: {
             ...state.keybindings,
             ...event.keybindings,

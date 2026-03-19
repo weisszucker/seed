@@ -2,7 +2,7 @@ import type { KeyEvent } from "@opentui/core"
 
 import type { KeybindingMap } from "../core/types"
 
-type CommandName = keyof KeybindingMap
+export type CommandName = keyof KeybindingMap
 
 type ParsedBinding = {
   ctrl: boolean
@@ -37,6 +37,10 @@ export function matchesBinding(binding: string, keyEvent: KeyEvent): boolean {
   )
 }
 
+export function isLeaderKey(leaderKey: string, keyEvent: KeyEvent): boolean {
+  return matchesBinding(leaderKey, keyEvent)
+}
+
 export function commandFromKeyEvent(
   keybindings: KeybindingMap,
   keyEvent: KeyEvent,
@@ -48,4 +52,41 @@ export function commandFromKeyEvent(
     }
   }
   return null
+}
+
+export type LeaderKeyResolution =
+  | { type: "ignored" }
+  | { type: "leader_pressed" }
+  | { type: "leader_repeat" }
+  | { type: "unmatched" }
+  | { type: "command"; command: CommandName }
+
+export function resolveLeaderKeyEvent(
+  leaderPending: boolean,
+  leaderKey: string,
+  keybindings: KeybindingMap,
+  keyEvent: KeyEvent,
+): LeaderKeyResolution {
+  if (isLeaderKey(leaderKey, keyEvent)) {
+    return leaderPending ? { type: "leader_repeat" } : { type: "leader_pressed" }
+  }
+
+  if (!leaderPending) {
+    return { type: "ignored" }
+  }
+
+  const command = commandFromKeyEvent(keybindings, keyEvent)
+  if (!command) {
+    return { type: "unmatched" }
+  }
+
+  return { type: "command", command }
+}
+
+export function formatKeybinding(leaderKey: string, binding: string): string {
+  return `${leaderKey} ${binding}`
+}
+
+export function formatLeaderKeybinding(binding: string): string {
+  return `<leader> ${binding}`
 }

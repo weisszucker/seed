@@ -1,4 +1,5 @@
 import type { KeybindingMap } from "../../core/types"
+import { formatLeaderKeybinding } from "../keybindings"
 import { uiColors, uiLayout } from "../../theme"
 
 type ShortcutHelpModalProps = {
@@ -53,7 +54,7 @@ export function ShortcutHelpModal({ keybindings, onClose }: ShortcutHelpModalPro
                 <text fg={uiColors.textPrimary}>{row.label}</text>
               </box>
               <box width="35%" justifyContent="flex-end">
-                <text fg={uiColors.sidebarTitle}>{keybindings[row.command]}</text>
+                <text fg={uiColors.sidebarTitle}>{formatLeaderKeybinding(keybindings[row.command])}</text>
               </box>
             </box>
           ))}
