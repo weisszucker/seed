@@ -8,6 +8,7 @@ import type { AppEvent, EditorState } from "../core/types"
 import { EditorPane } from "./components/EditorPane"
 import { SaveAsModal } from "./components/SaveAsModal"
 import { SidebarPane } from "./components/SidebarPane"
+import { ShortcutHelpModal } from "./components/ShortcutHelpModal"
 import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
 import { commandFromKeyEvent } from "./keybindings"
@@ -55,6 +56,10 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
     return
   }
 
+  if (state.modal?.kind === "shortcut_help") {
+    return
+  }
+
   const command = commandFromKeyEvent(state.keybindings, key)
   if (!command) {
     return
@@ -66,6 +71,7 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
     saveAs: { type: "REQUEST_SAVE_AS" },
     newFile: { type: "REQUEST_NEW_FILE" },
     toggleSidebar: { type: "TOGGLE_SIDEBAR" },
+    showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
   }
   dispatch(commandMap[command])
 }
@@ -95,6 +101,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
+  const shortcutHelpModal = state.modal?.kind === "shortcut_help" ? state.modal : null
   const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
 
   return (
@@ -159,6 +166,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           onSubmit={() => runtime.dispatch({ type: "SAVE_AS_SUBMITTED" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
+      ) : null}
+
+      {shortcutHelpModal ? (
+        <ShortcutHelpModal keybindings={state.keybindings} onClose={() => runtime.dispatch({ type: "PROMPT_CANCEL" })} />
       ) : null}
     </box>
   )

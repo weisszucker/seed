@@ -10,6 +10,9 @@ export type ModalState =
       selectedOption: "save" | "dont_save"
     }
   | {
+      kind: "shortcut_help"
+    }
+  | {
       kind: "save_as"
       pathInput: string
     }
@@ -34,6 +37,7 @@ export type KeybindingMap = {
   saveAs: string
   newFile: string
   toggleSidebar: string
+  showShortcutHelp: string
 }
 
 export type EditorState = {
@@ -70,6 +74,7 @@ export type AppEvent =
   | { type: "REQUEST_QUIT" }
   | { type: "REQUEST_SAVE" }
   | { type: "REQUEST_SAVE_AS" }
+  | { type: "REQUEST_SHOW_SHORTCUT_HELP" }
   | { type: "SAVE_AS_PATH_UPDATED"; path: string }
   | { type: "SAVE_AS_SUBMITTED" }
   | { type: "PROMPT_CHOOSE_SAVE" }
@@ -89,6 +94,7 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   saveAs: "ctrl+shift+s",
   newFile: "ctrl+n",
   toggleSidebar: "ctrl+l",
+  showShortcutHelp: "ctrl+k",
 }
 
 export function createInitialState(cwd: string): EditorState {
