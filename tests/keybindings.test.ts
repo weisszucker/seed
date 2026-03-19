@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test"
 
-import { DEFAULT_KEYBINDINGS } from "../src/core/types"
-import { commandFromKeyEvent } from "../src/ui/keybindings"
+import { DEFAULT_KEYBINDINGS, DEFAULT_LEADER_KEY } from "../src/core/types"
+import { commandFromKeyEvent, resolveLeaderKeyEvent } from "../src/ui/keybindings"
 
 describe("keybinding matching", () => {
-  test("matches ctrl+shift+s for saveAs", () => {
+  test("matches shift+s for saveAs after leader", () => {
     const command = commandFromKeyEvent(DEFAULT_KEYBINDINGS, {
       name: "s",
-      ctrl: true,
+      ctrl: false,
       shift: true,
       meta: undefined,
       option: false,
@@ -19,9 +19,9 @@ describe("keybinding matching", () => {
     expect(command).toBe("saveAs")
   })
 
-  test("matches ctrl+k for showShortcutHelp", () => {
-    const command = commandFromKeyEvent(DEFAULT_KEYBINDINGS, {
-      name: "k",
+  test("leader press enters pending mode", () => {
+    const resolution = resolveLeaderKeyEvent(false, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "l",
       ctrl: true,
       shift: false,
       meta: undefined,
@@ -31,6 +31,51 @@ describe("keybinding matching", () => {
       sequence: "",
     } as never)
 
-    expect(command).toBe("showShortcutHelp")
+    expect(resolution).toEqual({ type: "leader_pressed" })
+  })
+
+  test("repeated leader press is a no-op", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "l",
+      ctrl: true,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "leader_repeat" })
+  })
+
+  test("plain key without leader is ignored", () => {
+    const resolution = resolveLeaderKeyEvent(false, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "k",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "ignored" })
+  })
+
+  test("matches k for showShortcutHelp after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "k",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "showShortcutHelp" })
   })
 })

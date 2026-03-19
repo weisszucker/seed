@@ -3,7 +3,8 @@ import { join } from "node:path"
 
 import type { KeybindingMap } from "../core/types"
 
-type UserConfig = {
+export type UserConfig = {
+  leaderKey?: string
   keybindings?: Partial<KeybindingMap>
 }
 
@@ -11,7 +12,7 @@ export function getUserConfigPath(): string {
   return join(homedir(), ".seed", "setting.json")
 }
 
-export async function loadUserKeybindings(): Promise<Partial<KeybindingMap>> {
+export async function loadUserConfig(): Promise<UserConfig> {
   const path = getUserConfigPath()
   const file = Bun.file(path)
   if (!(await file.exists())) {
@@ -20,8 +21,8 @@ export async function loadUserKeybindings(): Promise<Partial<KeybindingMap>> {
 
   const raw = await file.text()
   const parsed = JSON.parse(raw) as UserConfig
-  if (!parsed.keybindings) {
-    return {}
+  return {
+    leaderKey: parsed.leaderKey,
+    keybindings: parsed.keybindings ?? {},
   }
-  return parsed.keybindings
 }

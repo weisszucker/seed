@@ -1,15 +1,15 @@
 import type { CliRenderer } from "@opentui/core"
 
 import type { AppEffect, AppEvent } from "../core/types"
-import { loadUserKeybindings } from "./config"
+import { loadUserConfig } from "./config"
 import { loadFileTree, readTextFile, writeTextFile } from "./fs"
 
 export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promise<AppEvent[]> {
   try {
     switch (effect.type) {
       case "LOAD_CONFIG": {
-        const keybindings = await loadUserKeybindings()
-        return [{ type: "CONFIG_LOADED", keybindings }]
+        const config = await loadUserConfig()
+        return [{ type: "CONFIG_LOADED", leaderKey: config.leaderKey, keybindings: config.keybindings ?? {} }]
       }
 
       case "LOAD_FILE_TREE": {

@@ -42,9 +42,14 @@ The status line should align to the editor column (not the full terminal width),
 
 ## Shortcuts
 
-ctrl-q for quitting.
-ctrl-s/ctrl-shift-s for saving/saving to.
-ctrl-n for opening a new untitled file.
-ctrl-l for toggling the sidebar.
+Use a leader key before all application shortcuts.
 
-The shortcuts can be controlled by a config file "setting.json".
+The default leader key is `ctrl-l`.
+
+`ctrl-l q` for quitting.
+`ctrl-l s` / `ctrl-l shift+s` for saving / saving to.
+`ctrl-l n` for opening a new untitled file.
+`ctrl-l l` for toggling the sidebar.
+`ctrl-l k` for showing shortcut help.
+
+The leader key and command keys can be controlled by a config file "setting.json".

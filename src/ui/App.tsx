@@ -11,8 +11,10 @@ import { SidebarPane } from "./components/SidebarPane"
 import { ShortcutHelpModal } from "./components/ShortcutHelpModal"
 import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
-import { commandFromKeyEvent } from "./keybindings"
+import { formatKeybinding, resolveLeaderKeyEvent, type CommandName } from "./keybindings"
 import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
+
+const LEADER_TIMEOUT_MS = 1500
 
 function formatTitle(path: string | null): string {
   if (!path) {
@@ -26,20 +28,37 @@ type AppProps = {
   effectRunner?: RuntimeEffectRunner
 }
 
-function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => void, key: KeyEvent): void {
+const commandMap: Record<CommandName, AppEvent> = {
+  quit: { type: "REQUEST_QUIT" },
+  save: { type: "REQUEST_SAVE" },
+  saveAs: { type: "REQUEST_SAVE_AS" },
+  newFile: { type: "REQUEST_NEW_FILE" },
+  toggleSidebar: { type: "TOGGLE_SIDEBAR" },
+  showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
+}
+
+function dispatchCommand(dispatch: (event: AppEvent) => void, command: CommandName): void {
+  dispatch(commandMap[command])
+}
+
+function handleModalKeyboardEvent(
+  state: EditorState,
+  dispatch: (event: AppEvent) => void,
+  key: KeyEvent,
+): "none" | "consume" | "pass_through" {
   if (key.name === "escape" && state.modal) {
     dispatch({ type: "PROMPT_CANCEL" })
-    return
+    return "consume"
   }
 
   if (state.modal?.kind === "unsaved_changes") {
     if (key.name === "left" || key.name === "up") {
       dispatch({ type: "PROMPT_SELECT_PREV" })
-      return
+      return "consume"
     }
     if (key.name === "right" || key.name === "down" || key.name === "tab") {
       dispatch({ type: "PROMPT_SELECT_NEXT" })
-      return
+      return "consume"
     }
     if (key.name === "enter" || key.name === "return") {
       if (state.modal.selectedOption === "save") {
@@ -47,33 +66,20 @@ function handleKeyboardEvent(state: EditorState, dispatch: (event: AppEvent) => 
       } else {
         dispatch({ type: "PROMPT_CHOOSE_DONT_SAVE" })
       }
-      return
+      return "consume"
     }
-    return
+    return "consume"
   }
 
   if (state.modal?.kind === "save_as") {
-    return
+    return "pass_through"
   }
 
   if (state.modal?.kind === "shortcut_help") {
-    return
+    return "consume"
   }
 
-  const command = commandFromKeyEvent(state.keybindings, key)
-  if (!command) {
-    return
-  }
-
-  const commandMap: Record<typeof command, AppEvent> = {
-    quit: { type: "REQUEST_QUIT" },
-    save: { type: "REQUEST_SAVE" },
-    saveAs: { type: "REQUEST_SAVE_AS" },
-    newFile: { type: "REQUEST_NEW_FILE" },
-    toggleSidebar: { type: "TOGGLE_SIDEBAR" },
-    showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
-  }
-  dispatch(commandMap[command])
+  return "none"
 }
 
 export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
@@ -86,7 +92,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
 
   const runtime = runtimeRef.current
   const [state, setState] = useState(runtime.getState())
+  const [leaderPending, setLeaderPending] = useState(false)
   const textareaRef = useRef<TextareaRenderable | null>(null)
+  const leaderPendingRef = useRef(false)
+  const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => runtime.subscribe(setState), [runtime])
 
@@ -94,8 +103,89 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
     runtime.dispatch({ type: "APP_STARTED" })
   }, [runtime])
 
+  useEffect(() => {
+    leaderPendingRef.current = leaderPending
+  }, [leaderPending])
+
+  useEffect(() => {
+    return () => {
+      if (leaderTimeoutRef.current) {
+        clearTimeout(leaderTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  function clearLeaderTimeout(): void {
+    if (!leaderTimeoutRef.current) {
+      return
+    }
+    clearTimeout(leaderTimeoutRef.current)
+    leaderTimeoutRef.current = null
+  }
+
+  function setLeaderPendingState(nextValue: boolean): void {
+    leaderPendingRef.current = nextValue
+    setLeaderPending(nextValue)
+  }
+
+  function clearLeaderPending(): void {
+    clearLeaderTimeout()
+    setLeaderPendingState(false)
+  }
+
+  function armLeaderTimeout(): void {
+    clearLeaderTimeout()
+    leaderTimeoutRef.current = setTimeout(() => {
+      leaderTimeoutRef.current = null
+      setLeaderPendingState(false)
+    }, LEADER_TIMEOUT_MS)
+  }
+
   useKeyboard((key) => {
-    handleKeyboardEvent(runtime.getState(), runtime.dispatch.bind(runtime), key)
+    const currentState = runtime.getState()
+    const dispatch = (event: AppEvent) => runtime.dispatch(event)
+
+    const modalResult = handleModalKeyboardEvent(currentState, dispatch, key)
+    if (modalResult === "consume") {
+      key.preventDefault()
+      key.stopPropagation()
+      clearLeaderPending()
+      return
+    }
+    if (modalResult === "pass_through") {
+      clearLeaderPending()
+      return
+    }
+
+    const resolution = resolveLeaderKeyEvent(
+      leaderPendingRef.current,
+      currentState.leaderKey,
+      currentState.keybindings,
+      key,
+    )
+
+    if (resolution.type === "ignored") {
+      return
+    }
+
+    key.preventDefault()
+    key.stopPropagation()
+
+    if (resolution.type === "leader_pressed") {
+      setLeaderPendingState(true)
+      armLeaderTimeout()
+      return
+    }
+
+    if (resolution.type === "leader_repeat") {
+      return
+    }
+
+    clearLeaderPending()
+
+    if (resolution.type === "command") {
+      dispatchCommand(dispatch, resolution.command)
+    }
   })
 
   const locked = state.modal !== null
@@ -103,6 +193,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
   const shortcutHelpModal = state.modal?.kind === "shortcut_help" ? state.modal : null
   const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
+  const leaderHint = leaderPending ? `Leader: ${formatKeybinding(state.leaderKey, "[key]")}` : null
 
   return (
     <box flexDirection="column" width="100%" height="100%" backgroundColor={uiColors.appBackground} padding={uiLayout.appPadding}>
@@ -145,7 +236,12 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
         marginTop={uiLayout.statusMarginTop}
       >
         <box width={state.sidebarVisible ? uiLayout.editorWidthPercent : "100%"} marginLeft={uiLayout.panelOuterMarginX} marginRight={uiLayout.panelOuterMarginX}>
-          <StatusBar path={state.document.path} isDirty={state.document.isDirty} />
+          <StatusBar
+            path={state.document.path}
+            isDirty={state.document.isDirty}
+            statusMessage={state.statusMessage}
+            leaderHint={leaderHint}
+          />
         </box>
         {state.sidebarVisible ? <box width={uiLayout.sidebarWidthPercent} /> : null}
       </box>
@@ -169,7 +265,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       ) : null}
 
       {shortcutHelpModal ? (
-        <ShortcutHelpModal keybindings={state.keybindings} onClose={() => runtime.dispatch({ type: "PROMPT_CANCEL" })} />
+        <ShortcutHelpModal
+          keybindings={state.keybindings}
+          onClose={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
       ) : null}
     </box>
   )
