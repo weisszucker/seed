@@ -86,7 +86,3 @@ export function resolveLeaderKeyEvent(
 export function formatKeybinding(leaderKey: string, binding: string): string {
   return `${leaderKey} ${binding}`
 }
-
-export function formatLeaderKeybinding(binding: string): string {
-  return `<leader> ${binding}`
-}

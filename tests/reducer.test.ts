@@ -37,6 +37,210 @@ describe("unsaved-change prompt gating", () => {
     expect(result.effects).toEqual([{ type: "LOAD_FILE_TREE", rootPath: "/tmp" }])
   })
 
+  test("focus sidebar reveals sidebar and seeds cursor from first visible node", () => {
+    const state = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "docs",
+          path: "/tmp/work/docs",
+          isDirectory: true,
+          children: [
+            {
+              name: "note.md",
+              path: "/tmp/work/docs/note.md",
+              isDirectory: false,
+              children: [],
+            },
+          ],
+        },
+      ],
+    }).state
+
+    const hidden = reduceEvent(state, { type: "TOGGLE_SIDEBAR" }).state
+    const result = reduceEvent(hidden, { type: "FOCUS_SIDEBAR" })
+
+    expect(result.state.sidebarVisible).toBe(true)
+    expect(result.state.focusedPane).toBe("sidebar")
+    expect(result.state.sidebarCursorPath).toBe("/tmp/work/docs")
+  })
+
+  test("toggle focus command moves between editor and sidebar", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "docs",
+          path: "/tmp/work/docs",
+          isDirectory: true,
+          children: [],
+        },
+      ],
+    }).state
+
+    const sidebarFocused = reduceEvent(initial, { type: "TOGGLE_FOCUS_PANE" }).state
+    const editorFocused = reduceEvent(sidebarFocused, { type: "TOGGLE_FOCUS_PANE" }).state
+
+    expect(sidebarFocused.focusedPane).toBe("sidebar")
+    expect(sidebarFocused.sidebarCursorPath).toBe("/tmp/work/docs")
+    expect(editorFocused.focusedPane).toBe("editor")
+  })
+
+  test("sidebar selection navigates visible nodes and can expand folders", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "docs",
+          path: "/tmp/work/docs",
+          isDirectory: true,
+          children: [
+            {
+              name: "note.md",
+              path: "/tmp/work/docs/note.md",
+              isDirectory: false,
+              children: [],
+            },
+          ],
+        },
+        {
+          name: "todo.md",
+          path: "/tmp/work/todo.md",
+          isDirectory: false,
+          children: [],
+        },
+      ],
+    }).state
+
+    const focused = reduceEvent(initial, { type: "FOCUS_SIDEBAR" }).state
+    const expanded = reduceEvent(focused, { type: "SIDEBAR_EXPAND_SELECTION" }).state
+    const moved = reduceEvent(expanded, { type: "SIDEBAR_SELECT_NEXT" }).state
+
+    expect(expanded.expandedDirs["/tmp/work/docs"]).toBe(true)
+    expect(moved.sidebarCursorPath).toBe("/tmp/work/docs/note.md")
+  })
+
+  test("sidebar delete request opens delete confirmation modal", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "docs",
+          path: "/tmp/work/docs",
+          isDirectory: true,
+          children: [],
+        },
+      ],
+    }).state
+
+    const focused = reduceEvent(initial, { type: "FOCUS_SIDEBAR" }).state
+    const result = reduceEvent(focused, { type: "SIDEBAR_REQUEST_DELETE_SELECTION" })
+
+    expect(result.state.modal).toEqual({
+      kind: "delete_confirm",
+      path: "/tmp/work/docs",
+      nodeType: "directory",
+      selectedOption: "cancel",
+    })
+    expect(result.effects).toEqual([])
+  })
+
+  test("delete confirmation submits delete effect", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "note.md",
+          path: "/tmp/work/note.md",
+          isDirectory: false,
+          children: [],
+        },
+      ],
+    }).state
+    const requested = reduceEvent(reduceEvent(initial, { type: "FOCUS_SIDEBAR" }).state, {
+      type: "SIDEBAR_REQUEST_DELETE_SELECTION",
+    }).state
+    const armed = reduceEvent(requested, { type: "PROMPT_SELECT_NEXT" }).state
+
+    const result = reduceEvent(armed, { type: "DELETE_CONFIRM_ACCEPT" })
+    expect(result.effects).toEqual([
+      {
+        type: "DELETE_PATH",
+        path: "/tmp/work/note.md",
+        nodeType: "file",
+      },
+    ])
+  })
+
+  test("sidebar collapse moves selection to parent when current node is already collapsed", () => {
+    const initial = reduceEvent(createInitialState("/tmp/work"), {
+      type: "FILE_TREE_LOADED",
+      nodes: [
+        {
+          name: "docs",
+          path: "/tmp/work/docs",
+          isDirectory: true,
+          children: [
+            {
+              name: "note.md",
+              path: "/tmp/work/docs/note.md",
+              isDirectory: false,
+              children: [],
+            },
+          ],
+        },
+      ],
+    }).state
+
+    const expanded = reduceEvent(reduceEvent(initial, { type: "FOCUS_SIDEBAR" }).state, {
+      type: "SIDEBAR_EXPAND_SELECTION",
+    }).state
+    const childSelected = reduceEvent(expanded, { type: "SIDEBAR_SELECT_NEXT" }).state
+    const result = reduceEvent(childSelected, { type: "SIDEBAR_COLLAPSE_SELECTION" })
+
+    expect(result.state.sidebarCursorPath).toBe("/tmp/work/docs")
+  })
+
+  test("toggle sidebar moves focus back to editor when hiding sidebar", () => {
+    const focused = reduceEvent(createInitialState("/tmp"), { type: "FOCUS_SIDEBAR" }).state
+    const result = reduceEvent(focused, { type: "TOGGLE_SIDEBAR" })
+
+    expect(result.state.sidebarVisible).toBe(false)
+    expect(result.state.focusedPane).toBe("editor")
+  })
+
+  test("loading a file shifts focus back to the editor", () => {
+    const focused = reduceEvent(createInitialState("/tmp/work"), { type: "FOCUS_SIDEBAR" }).state
+    const result = reduceEvent(focused, {
+      type: "FILE_LOADED",
+      path: "/tmp/work/note.md",
+      text: "hello",
+    })
+
+    expect(result.state.focusedPane).toBe("editor")
+    expect(result.state.document.path).toBe("/tmp/work/note.md")
+  })
+
+  test("deleting the open document clears the editor and refreshes the tree", () => {
+    const initial = createInitialState("/tmp/work")
+    const loaded = reduceEvent(initial, {
+      type: "FILE_LOADED",
+      path: "/tmp/work/docs/note.md",
+      text: "hello",
+    }).state
+
+    const result = reduceEvent(loaded, {
+      type: "PATH_DELETED",
+      path: "/tmp/work/docs",
+      nodeType: "directory",
+    })
+
+    expect(result.state.document.path).toBeNull()
+    expect(result.state.document.text).toBe("")
+    expect(result.state.selectedPath).toBeNull()
+    expect(result.effects).toEqual([{ type: "LOAD_FILE_TREE", rootPath: "/tmp/work" }])
+  })
+
   test("open file while dirty opens prompt and defers action", () => {
     const state = dirtyState()
     const result = reduceEvent(state, { type: "REQUEST_OPEN_FILE", path: "/tmp/next.md" })

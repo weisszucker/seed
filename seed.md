@@ -30,6 +30,12 @@ Prompt is gating: pending actions do not execute until the prompt decision is ma
 
 The sidebar can be toggled on and off. When it's toggled off, the editor should be centered horizontally.
 
+The sidebar can take keyboard focus. When focused, the user can move selection between visible items, open files, and collapse or expand folders. While the sidebar is focused, the editor should not receive text input. `Esc` moves focus back to the editor, and clicking in the editor should also return focus to the editor.
+
+When the sidebar is focused, arrow keys, `w`/`s`/`a`/`d`, and `h`/`j`/`k`/`l` should navigate the tree. `Enter` and `Space` should both toggle a folder or open the selected file.
+
+When the sidebar is focused, `Backspace` and `Delete` should delete the selected file or folder after a confirmation prompt.
+
 ## Layout
 
 The editor content width should be capped at around 100 characters.
@@ -46,12 +52,13 @@ Use a leader key before all application shortcuts.
 
 The default leader key is `ctrl-l`.
 
-`ctrl-l q` for quitting.
-`ctrl-l s` / `ctrl-l shift+s` for saving / saving to.
-`ctrl-l n` for opening a new untitled file.
-`ctrl-l c` for creating a file or folder by path relative to the workspace root. A trailing platform path separator means folder creation.
-`ctrl-l m` for moving a file or folder by source and destination path relative to the workspace root.
-`ctrl-l l` for toggling the sidebar.
-`ctrl-l k` for showing shortcut help.
+`<leader> q` for quitting.
+`<leader> s` / `ctrl-l shift+s` for saving / saving to.
+`<leader> n` for opening a new untitled file.
+`<leader> c` for creating a file or folder by path relative to the workspace root. A trailing platform path separator means folder creation.
+`<leader> m` for moving a file or folder by source and destination path relative to the workspace root.
+`<leader> e` for toggling the sidebar.
+`<leader> l` for shifting focus between the editor and the sidebar.
+`<leader> k` for showing shortcut help.
 
 The leader key and command keys can be controlled by a config file "setting.json".

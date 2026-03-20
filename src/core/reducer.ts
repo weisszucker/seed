@@ -6,6 +6,12 @@ type ReduceResult = {
   effects: AppEffect[]
 }
 
+type VisibleSidebarNode = {
+  path: string
+  isDirectory: boolean
+  parentPath: string | null
+}
+
 function withDocumentText(state: EditorState, text: string): EditorState {
   const isDirty = text !== state.document.savedText
   return {
@@ -20,6 +26,174 @@ function withDocumentText(state: EditorState, text: string): EditorState {
 
 function formatPathForDisplay(rootPath: string, targetPath: string): string {
   return toWorkspaceRelativePath(rootPath, targetPath) ?? targetPath
+}
+
+function flattenVisibleSidebarNodes(
+  nodes: EditorState["fileTree"],
+  expandedDirs: EditorState["expandedDirs"],
+  parentPath: string | null = null,
+): VisibleSidebarNode[] {
+  const visibleNodes: VisibleSidebarNode[] = []
+
+  for (const node of nodes) {
+    visibleNodes.push({
+      path: node.path,
+      isDirectory: node.isDirectory,
+      parentPath,
+    })
+
+    if (node.isDirectory && (expandedDirs[node.path] ?? false)) {
+      visibleNodes.push(...flattenVisibleSidebarNodes(node.children, expandedDirs, node.path))
+    }
+  }
+
+  return visibleNodes
+}
+
+function getVisibleSidebarNodes(state: EditorState): VisibleSidebarNode[] {
+  return flattenVisibleSidebarNodes(state.fileTree, state.expandedDirs)
+}
+
+function getSidebarCursorPath(state: EditorState): string | null {
+  const visibleNodes = getVisibleSidebarNodes(state)
+  if (visibleNodes.length === 0) {
+    return null
+  }
+
+  const visiblePaths = new Set(visibleNodes.map((node) => node.path))
+  if (state.sidebarCursorPath && visiblePaths.has(state.sidebarCursorPath)) {
+    return state.sidebarCursorPath
+  }
+  if (state.selectedPath && visiblePaths.has(state.selectedPath)) {
+    return state.selectedPath
+  }
+
+  return visibleNodes[0]?.path ?? null
+}
+
+function findVisibleSidebarNode(state: EditorState, path: string | null): VisibleSidebarNode | null {
+  if (!path) {
+    return null
+  }
+  return getVisibleSidebarNodes(state).find((node) => node.path === path) ?? null
+}
+
+function moveSidebarSelection(state: EditorState, offset: -1 | 1): EditorState {
+  const visibleNodes = getVisibleSidebarNodes(state)
+  if (visibleNodes.length === 0) {
+    return state
+  }
+
+  const currentPath = getSidebarCursorPath(state)
+  const currentIndex = visibleNodes.findIndex((node) => node.path === currentPath)
+  const nextIndex = currentIndex === -1 ? 0 : Math.min(Math.max(currentIndex + offset, 0), visibleNodes.length - 1)
+
+  return {
+    ...state,
+    sidebarCursorPath: visibleNodes[nextIndex]?.path ?? currentPath,
+  }
+}
+
+function focusSidebar(state: EditorState): EditorState {
+  return {
+    ...state,
+    sidebarVisible: true,
+    focusedPane: "sidebar",
+    sidebarCursorPath: getSidebarCursorPath({
+      ...state,
+      sidebarVisible: true,
+    }),
+  }
+}
+
+function focusEditor(state: EditorState): EditorState {
+  return {
+    ...state,
+    focusedPane: "editor",
+  }
+}
+
+function activateSidebarSelection(state: EditorState): ReduceResult {
+  const currentNode = findVisibleSidebarNode(state, getSidebarCursorPath(state))
+  if (!currentNode) {
+    return { state, effects: [] }
+  }
+
+  if (currentNode.isDirectory) {
+    return {
+      state: {
+        ...state,
+        expandedDirs: {
+          ...state.expandedDirs,
+          [currentNode.path]: !state.expandedDirs[currentNode.path],
+        },
+        sidebarCursorPath: currentNode.path,
+      },
+      effects: [],
+    }
+  }
+
+  return requestRiskyAction(state, { type: "open_file", path: currentNode.path })
+}
+
+function expandSidebarSelection(state: EditorState): ReduceResult {
+  const currentNode = findVisibleSidebarNode(state, getSidebarCursorPath(state))
+  if (!currentNode) {
+    return { state, effects: [] }
+  }
+
+  if (!currentNode.isDirectory) {
+    return requestRiskyAction(state, { type: "open_file", path: currentNode.path })
+  }
+
+  if (state.expandedDirs[currentNode.path]) {
+    return { state, effects: [] }
+  }
+
+  return {
+    state: {
+      ...state,
+      expandedDirs: {
+        ...state.expandedDirs,
+        [currentNode.path]: true,
+      },
+      sidebarCursorPath: currentNode.path,
+    },
+    effects: [],
+  }
+}
+
+function collapseSidebarSelection(state: EditorState): ReduceResult {
+  const currentNode = findVisibleSidebarNode(state, getSidebarCursorPath(state))
+  if (!currentNode) {
+    return { state, effects: [] }
+  }
+
+  if (currentNode.isDirectory && state.expandedDirs[currentNode.path]) {
+    return {
+      state: {
+        ...state,
+        expandedDirs: {
+          ...state.expandedDirs,
+          [currentNode.path]: false,
+        },
+        sidebarCursorPath: currentNode.path,
+      },
+      effects: [],
+    }
+  }
+
+  if (!currentNode.parentPath) {
+    return { state, effects: [] }
+  }
+
+  return {
+    state: {
+      ...state,
+      sidebarCursorPath: currentNode.parentPath,
+    },
+    effects: [],
+  }
 }
 
 function executePendingAction(state: EditorState, action: PendingAction): ReduceResult {
@@ -105,6 +279,7 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "MOVE_DESTINATION_PATH_UPDATED",
     "MOVE_PATH_FOCUS_CHANGED",
     "MOVE_PATH_SUBMITTED",
+    "DELETE_CONFIRM_ACCEPT",
     "FILE_SAVED",
     "FILE_SAVE_FAILED",
     "FILE_LOADED",
@@ -113,6 +288,8 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "PATH_CREATE_FAILED",
     "PATH_MOVED",
     "PATH_MOVE_FAILED",
+    "PATH_DELETED",
+    "PATH_DELETE_FAILED",
     "CONFIG_LOADED",
     "CONFIG_LOAD_FAILED",
     "FILE_TREE_LOADED",
@@ -132,6 +309,15 @@ function toSaveAsModal(rootPath: string, currentPath: string | null): ModalState
 function toShortcutHelpModal(): ModalState {
   return {
     kind: "shortcut_help",
+  }
+}
+
+function toDeleteConfirmModal(path: string, nodeType: "file" | "directory"): ModalState {
+  return {
+    kind: "delete_confirm",
+    path,
+    nodeType,
+    selectedOption: "cancel",
   }
 }
 
@@ -214,6 +400,12 @@ function remapExpandedDirs(
   return Object.fromEntries(nextEntries)
 }
 
+function pruneExpandedDirs(expandedDirs: Record<string, boolean>, deletedPath: string): Record<string, boolean> {
+  return Object.fromEntries(
+    Object.entries(expandedDirs).filter(([path]) => !isSameOrDescendantPath(deletedPath, path)),
+  )
+}
+
 function supportsBackslashSeparator(): boolean {
   return process.platform === "win32"
 }
@@ -285,6 +477,10 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         state: {
           ...state,
           fileTree: event.nodes,
+          sidebarCursorPath: getSidebarCursorPath({
+            ...state,
+            fileTree: event.nodes,
+          }),
           statusMessage: "File tree loaded",
         },
         effects: [],
@@ -304,7 +500,27 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         state: {
           ...state,
           sidebarVisible: !state.sidebarVisible,
+          focusedPane: state.sidebarVisible ? "editor" : state.focusedPane,
+          sidebarCursorPath: state.sidebarVisible ? state.sidebarCursorPath : getSidebarCursorPath(state),
         },
+        effects: [],
+      }
+
+    case "TOGGLE_FOCUS_PANE":
+      return {
+        state: state.focusedPane === "sidebar" ? focusEditor(state) : focusSidebar(state),
+        effects: [],
+      }
+
+    case "FOCUS_EDITOR":
+      return {
+        state: focusEditor(state),
+        effects: [],
+      }
+
+    case "FOCUS_SIDEBAR":
+      return {
+        state: focusSidebar(state),
         effects: [],
       }
 
@@ -316,6 +532,44 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
             ...state.expandedDirs,
             [event.path]: !state.expandedDirs[event.path],
           },
+          sidebarCursorPath: event.path,
+        },
+        effects: [],
+      }
+    }
+
+    case "SIDEBAR_SELECT_PREV":
+      return {
+        state: moveSidebarSelection(state, -1),
+        effects: [],
+      }
+
+    case "SIDEBAR_SELECT_NEXT":
+      return {
+        state: moveSidebarSelection(state, 1),
+        effects: [],
+      }
+
+    case "SIDEBAR_ACTIVATE_SELECTION":
+      return activateSidebarSelection(state)
+
+    case "SIDEBAR_EXPAND_SELECTION":
+      return expandSidebarSelection(state)
+
+    case "SIDEBAR_COLLAPSE_SELECTION":
+      return collapseSidebarSelection(state)
+
+    case "SIDEBAR_REQUEST_DELETE_SELECTION": {
+      const currentNode = findVisibleSidebarNode(state, getSidebarCursorPath(state))
+      if (!currentNode) {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: toDeleteConfirmModal(currentNode.path, currentNode.isDirectory ? "directory" : "file"),
+          statusMessage: `Delete ${formatPathForDisplay(state.cwd, currentNode.path)}?`,
         },
         effects: [],
       }
@@ -433,10 +687,45 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       )
     }
 
-    case "PROMPT_SELECT_PREV": {
-      if (!state.modal || state.modal.kind !== "unsaved_changes") {
+    case "DELETE_CONFIRM_ACCEPT": {
+      if (!state.modal || state.modal.kind !== "delete_confirm") {
         return { state, effects: [] }
       }
+
+      return {
+        state: {
+          ...state,
+          modal: null,
+          statusMessage: `Deleting ${formatPathForDisplay(state.cwd, state.modal.path)}`,
+        },
+        effects: [
+          {
+            type: "DELETE_PATH",
+            path: state.modal.path,
+            nodeType: state.modal.nodeType,
+          },
+        ],
+      }
+    }
+
+    case "PROMPT_SELECT_PREV": {
+      if (!state.modal || (state.modal.kind !== "unsaved_changes" && state.modal.kind !== "delete_confirm")) {
+        return { state, effects: [] }
+      }
+
+      if (state.modal.kind === "delete_confirm") {
+        return {
+          state: {
+            ...state,
+            modal: {
+              ...state.modal,
+              selectedOption: state.modal.selectedOption === "cancel" ? "delete" : "cancel",
+            },
+          },
+          effects: [],
+        }
+      }
+
       return {
         state: {
           ...state,
@@ -450,9 +739,23 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
     }
 
     case "PROMPT_SELECT_NEXT": {
-      if (!state.modal || state.modal.kind !== "unsaved_changes") {
+      if (!state.modal || (state.modal.kind !== "unsaved_changes" && state.modal.kind !== "delete_confirm")) {
         return { state, effects: [] }
       }
+
+      if (state.modal.kind === "delete_confirm") {
+        return {
+          state: {
+            ...state,
+            modal: {
+              ...state.modal,
+              selectedOption: state.modal.selectedOption === "cancel" ? "delete" : "cancel",
+            },
+          },
+          effects: [],
+        }
+      }
+
       return {
         state: {
           ...state,
@@ -784,6 +1087,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         state: {
           ...state,
           modal: null,
+          sidebarCursorPath: event.path,
           statusMessage: `${event.nodeType === "directory" ? "Created folder" : "Created file"} ${formatPathForDisplay(state.cwd, event.path)}`,
         },
         effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
@@ -804,6 +1108,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           ...state,
           modal: null,
           selectedPath: remapMovedPath(state.selectedPath, event.sourcePath, event.destinationPath),
+          sidebarCursorPath: remapMovedPath(state.sidebarCursorPath, event.sourcePath, event.destinationPath),
           expandedDirs: remapExpandedDirs(state.expandedDirs, event.sourcePath, event.destinationPath),
           document: {
             ...state.document,
@@ -823,12 +1128,49 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         effects: [],
       }
 
+    case "PATH_DELETED":
+      return {
+        state: {
+          ...state,
+          modal: null,
+          selectedPath:
+            state.selectedPath && isSameOrDescendantPath(event.path, state.selectedPath) ? null : state.selectedPath,
+          sidebarCursorPath:
+            state.sidebarCursorPath && isSameOrDescendantPath(event.path, state.sidebarCursorPath)
+              ? null
+              : state.sidebarCursorPath,
+          expandedDirs: pruneExpandedDirs(state.expandedDirs, event.path),
+          document:
+            state.document.path && isSameOrDescendantPath(event.path, state.document.path)
+              ? {
+                  path: null,
+                  text: "",
+                  savedText: "",
+                  isDirty: false,
+                }
+              : state.document,
+          statusMessage: `${event.nodeType === "directory" ? "Deleted folder" : "Deleted file"} ${formatPathForDisplay(state.cwd, event.path)}`,
+        },
+        effects: [{ type: "LOAD_FILE_TREE", rootPath: state.cwd }],
+      }
+
+    case "PATH_DELETE_FAILED":
+      return {
+        state: {
+          ...state,
+          statusMessage: event.message,
+        },
+        effects: [],
+      }
+
     case "FILE_LOADED":
       return {
         state: {
           ...state,
           modal: null,
+          focusedPane: "editor",
           selectedPath: event.path,
+          sidebarCursorPath: event.path,
           document: {
             path: event.path,
             text: event.text,
@@ -859,6 +1201,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           isDirty: false,
         },
         selectedPath: event.path,
+        sidebarCursorPath: event.path,
         statusMessage: `Saved ${formatPathForDisplay(state.cwd, event.path)}`,
         modal: null,
         postSaveAction: null,

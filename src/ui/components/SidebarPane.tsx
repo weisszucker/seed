@@ -10,11 +10,13 @@ type SidebarPaneProps = {
   fileTree: FileNode[]
   expandedDirs: Record<string, boolean>
   selectedPath: string | null
+  cursorPath: string | null
+  focused: boolean
   locked: boolean
   dispatch: (event: AppEvent) => void
 }
 
-export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath, locked, dispatch }: SidebarPaneProps) {
+export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath, cursorPath, focused, locked, dispatch }: SidebarPaneProps) {
   if (!visible) {
     return null
   }
@@ -27,6 +29,7 @@ export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath
           if (locked) {
             return
           }
+          dispatch({ type: "FOCUS_SIDEBAR" })
           dispatch({ type: "REQUEST_REFRESH_FILE_TREE" })
         }}
       >
@@ -37,6 +40,8 @@ export function SidebarPane({ visible, cwd, fileTree, expandedDirs, selectedPath
           nodes={fileTree}
           expandedDirs={expandedDirs}
           selectedPath={selectedPath}
+          cursorPath={cursorPath}
+          focused={focused}
           depth={0}
           disabled={locked}
           dispatch={dispatch}

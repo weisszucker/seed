@@ -13,6 +13,12 @@ export type ModalState =
       kind: "shortcut_help"
     }
   | {
+      kind: "delete_confirm"
+      path: string
+      nodeType: "file" | "directory"
+      selectedOption: "cancel" | "delete"
+    }
+  | {
       kind: "save_as"
       pathInput: string
     }
@@ -41,6 +47,8 @@ export type DocumentState = {
   isDirty: boolean
 }
 
+export type FocusedPane = "editor" | "sidebar"
+
 export type KeybindingMap = {
   quit: string
   save: string
@@ -49,6 +57,7 @@ export type KeybindingMap = {
   createPath: string
   movePath: string
   toggleSidebar: string
+  shiftFocus: string
   showShortcutHelp: string
 }
 
@@ -58,7 +67,9 @@ export type EditorState = {
   fileTree: FileNode[]
   expandedDirs: Record<string, boolean>
   selectedPath: string | null
+  sidebarCursorPath: string | null
   sidebarVisible: boolean
+  focusedPane: FocusedPane
   leaderKey: string
   keybindings: KeybindingMap
   modal: ModalState | null
@@ -73,6 +84,7 @@ export type AppEffect =
   | { type: "SAVE_FILE"; path: string; text: string }
   | { type: "CREATE_PATH"; rootPath: string; path: string; nodeType: "file" | "directory" }
   | { type: "MOVE_PATH"; rootPath: string; sourcePath: string; destinationPath: string }
+  | { type: "DELETE_PATH"; path: string; nodeType: "file" | "directory" }
   | { type: "EXIT_APP" }
 
 export type AppEvent =
@@ -83,7 +95,16 @@ export type AppEvent =
   | { type: "FILE_TREE_LOADED"; nodes: FileNode[] }
   | { type: "FILE_TREE_LOAD_FAILED"; message: string }
   | { type: "TOGGLE_SIDEBAR" }
+  | { type: "TOGGLE_FOCUS_PANE" }
+  | { type: "FOCUS_EDITOR" }
+  | { type: "FOCUS_SIDEBAR" }
   | { type: "TOGGLE_DIRECTORY"; path: string }
+  | { type: "SIDEBAR_SELECT_PREV" }
+  | { type: "SIDEBAR_SELECT_NEXT" }
+  | { type: "SIDEBAR_ACTIVATE_SELECTION" }
+  | { type: "SIDEBAR_EXPAND_SELECTION" }
+  | { type: "SIDEBAR_COLLAPSE_SELECTION" }
+  | { type: "SIDEBAR_REQUEST_DELETE_SELECTION" }
   | { type: "REQUEST_OPEN_FILE"; path: string }
   | { type: "REQUEST_NEW_FILE" }
   | { type: "REQUEST_QUIT" }
@@ -102,6 +123,7 @@ export type AppEvent =
   | { type: "MOVE_PATH_SUBMITTED" }
   | { type: "PROMPT_CHOOSE_SAVE" }
   | { type: "PROMPT_CHOOSE_DONT_SAVE" }
+  | { type: "DELETE_CONFIRM_ACCEPT" }
   | { type: "PROMPT_SELECT_PREV" }
   | { type: "PROMPT_SELECT_NEXT" }
   | { type: "PROMPT_CANCEL" }
@@ -114,6 +136,8 @@ export type AppEvent =
   | { type: "PATH_CREATE_FAILED"; message: string }
   | { type: "PATH_MOVED"; sourcePath: string; destinationPath: string }
   | { type: "PATH_MOVE_FAILED"; message: string }
+  | { type: "PATH_DELETED"; path: string; nodeType: "file" | "directory" }
+  | { type: "PATH_DELETE_FAILED"; message: string }
 
 export const DEFAULT_LEADER_KEY = "ctrl+l"
 
@@ -124,7 +148,8 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   newFile: "n",
   createPath: "c",
   movePath: "m",
-  toggleSidebar: "l",
+  toggleSidebar: "e",
+  shiftFocus: "l",
   showShortcutHelp: "k",
 }
 
@@ -140,7 +165,9 @@ export function createInitialState(cwd: string): EditorState {
     fileTree: [],
     expandedDirs: {},
     selectedPath: null,
+    sidebarCursorPath: null,
     sidebarVisible: true,
+    focusedPane: "editor",
     leaderKey: DEFAULT_LEADER_KEY,
     keybindings: DEFAULT_KEYBINDINGS,
     modal: null,

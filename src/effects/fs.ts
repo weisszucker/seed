@@ -1,4 +1,4 @@
-import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises"
+import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises"
 import type { Dirent } from "node:fs"
 import { dirname, join } from "node:path"
 
@@ -84,4 +84,8 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
 
   await mkdir(dirname(destinationPath), { recursive: true })
   await rename(sourcePath, destinationPath)
+}
+
+export async function deletePath(path: string): Promise<void> {
+  await rm(path, { recursive: true, force: false })
 }
