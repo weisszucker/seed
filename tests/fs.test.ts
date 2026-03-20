@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { describe, expect, test } from "bun:test"
 
-import { createPath, loadFileTree, movePath } from "../src/effects/fs"
+import { createPath, deletePath, loadFileTree, movePath } from "../src/effects/fs"
 
 describe("file tree loading", () => {
   test("hides hidden files and directories by default", async () => {
@@ -52,6 +52,23 @@ describe("file tree loading", () => {
       await movePath(sourcePath, destinationPath)
 
       expect(await readFile(destinationPath, "utf8")).toBe("hello")
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("deletes files and directories recursively", async () => {
+    const root = await mkdtemp(join(tmpdir(), "seed-delete-"))
+    try {
+      const nestedDir = join(root, "docs", "archive")
+      const nestedFile = join(nestedDir, "note.md")
+      await mkdir(nestedDir, { recursive: true })
+      await writeFile(nestedFile, "hello")
+
+      await deletePath(join(root, "docs"))
+
+      const tree = await loadFileTree(root)
+      expect(tree).toEqual([])
     } finally {
       await rm(root, { recursive: true, force: true })
     }

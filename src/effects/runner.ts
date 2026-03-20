@@ -2,7 +2,7 @@ import type { CliRenderer } from "@opentui/core"
 
 import type { AppEffect, AppEvent } from "../core/types"
 import { loadUserConfig } from "./config"
-import { createPath, loadFileTree, movePath, readTextFile, writeTextFile } from "./fs"
+import { createPath, deletePath, loadFileTree, movePath, readTextFile, writeTextFile } from "./fs"
 
 export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promise<AppEvent[]> {
   try {
@@ -37,6 +37,11 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
         return [{ type: "PATH_MOVED", sourcePath: effect.sourcePath, destinationPath: effect.destinationPath }]
       }
 
+      case "DELETE_PATH": {
+        await deletePath(effect.path)
+        return [{ type: "PATH_DELETED", path: effect.path, nodeType: effect.nodeType }]
+      }
+
       case "EXIT_APP":
         renderer.destroy()
         return []
@@ -64,6 +69,9 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
     }
     if (effect.type === "MOVE_PATH") {
       return [{ type: "PATH_MOVE_FAILED", message: `Failed to move path: ${message}` }]
+    }
+    if (effect.type === "DELETE_PATH") {
+      return [{ type: "PATH_DELETE_FAILED", message: `Failed to delete path: ${message}` }]
     }
 
     return []

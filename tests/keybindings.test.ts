@@ -108,4 +108,34 @@ describe("keybinding matching", () => {
 
     expect(resolution).toEqual({ type: "command", command: "movePath" })
   })
+
+  test("matches e for toggleSidebar after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "e",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "toggleSidebar" })
+  })
+
+  test("matches l for shiftFocus after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "l",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "shiftFocus" })
+  })
 })

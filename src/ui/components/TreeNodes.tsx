@@ -5,24 +5,29 @@ type TreeProps = {
   nodes: FileNode[]
   expandedDirs: Record<string, boolean>
   selectedPath: string | null
+  cursorPath: string | null
+  focused: boolean
   depth: number
   disabled: boolean
   dispatch: (event: AppEvent) => void
 }
 
-export function TreeNodes({ nodes, expandedDirs, selectedPath, depth, disabled, dispatch }: TreeProps) {
+export function TreeNodes({ nodes, expandedDirs, selectedPath, cursorPath, focused, depth, disabled, dispatch }: TreeProps) {
   return (
     <>
       {nodes.map((node) => {
         const isExpanded = expandedDirs[node.path] ?? false
-        const isSelected = !node.isDirectory && selectedPath === node.path
+        const activePath = cursorPath ?? selectedPath
+        const isSelected = activePath === node.path
         return (
           <box key={node.path} flexDirection="column">
             <box
+              backgroundColor={focused && isSelected ? uiColors.treeSelectedBackground : undefined}
               onMouseDown={() => {
                 if (disabled) {
                   return
                 }
+                dispatch({ type: "FOCUS_SIDEBAR" })
                 if (node.isDirectory) {
                   dispatch({ type: "TOGGLE_DIRECTORY", path: node.path })
                   return
@@ -41,6 +46,8 @@ export function TreeNodes({ nodes, expandedDirs, selectedPath, depth, disabled, 
                 nodes={node.children}
                 expandedDirs={expandedDirs}
                 selectedPath={selectedPath}
+                cursorPath={cursorPath}
+                focused={focused}
                 depth={depth + 1}
                 disabled={disabled}
                 dispatch={dispatch}

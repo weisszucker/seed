@@ -25,6 +25,7 @@ export const uiColors = {
   sidebarTitle: "#9dbb9d",
   treeDefault: "#c3c9d2",
   treeDisabled: "#7c818a",
+  treeSelectedBackground: "#353024",
   accent: "#e2bf88",
   danger: "#cc8383",
   modalBackground: "#252932",

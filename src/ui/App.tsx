@@ -6,6 +6,7 @@ import { basename } from "node:path"
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
 import { EditorPane } from "./components/EditorPane"
+import { DeleteConfirmModal } from "./components/DeleteConfirmModal"
 import { MovePathModal } from "./components/MovePathModal"
 import { SaveAsModal } from "./components/SaveAsModal"
 import { SidebarPane } from "./components/SidebarPane"
@@ -16,7 +17,6 @@ import { formatKeybinding, resolveLeaderKeyEvent, type CommandName } from "./key
 import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
 
 const LEADER_TIMEOUT_MS = 1500
-
 function formatTitle(path: string | null): string {
   if (!path) {
     return "untitled"
@@ -37,6 +37,7 @@ const commandMap: Record<CommandName, AppEvent> = {
   createPath: { type: "REQUEST_CREATE_PATH" },
   movePath: { type: "REQUEST_MOVE_PATH" },
   toggleSidebar: { type: "TOGGLE_SIDEBAR" },
+  shiftFocus: { type: "TOGGLE_FOCUS_PANE" },
   showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
 }
 
@@ -74,6 +75,26 @@ function handleModalKeyboardEvent(
     return "consume"
   }
 
+  if (state.modal?.kind === "delete_confirm") {
+    if (key.name === "left" || key.name === "up") {
+      dispatch({ type: "PROMPT_SELECT_PREV" })
+      return "consume"
+    }
+    if (key.name === "right" || key.name === "down" || key.name === "tab") {
+      dispatch({ type: "PROMPT_SELECT_NEXT" })
+      return "consume"
+    }
+    if (key.name === "enter" || key.name === "return") {
+      if (state.modal.selectedOption === "delete") {
+        dispatch({ type: "DELETE_CONFIRM_ACCEPT" })
+      } else {
+        dispatch({ type: "PROMPT_CANCEL" })
+      }
+      return "consume"
+    }
+    return "consume"
+  }
+
   if (state.modal?.kind === "save_as") {
     return "pass_through"
   }
@@ -98,6 +119,84 @@ function handleModalKeyboardEvent(
   }
 
   return "none"
+}
+
+function handleSidebarKeyboardEvent(
+  state: EditorState,
+  dispatch: (event: AppEvent) => void,
+  key: KeyEvent,
+  leaderPending: boolean,
+): boolean {
+  if (state.focusedPane !== "sidebar") {
+    return false
+  }
+
+  if (leaderPending) {
+    return false
+  }
+
+  const hasModifier = Boolean(key.ctrl) || Boolean(key.meta) || Boolean(key.shift)
+
+  if (key.name === "escape") {
+    dispatch({ type: "FOCUS_EDITOR" })
+    return true
+  }
+
+  if (hasModifier) {
+    return false
+  }
+
+  if (key.name === "up") {
+    dispatch({ type: "SIDEBAR_SELECT_PREV" })
+    return true
+  }
+
+  if (key.name === "w" || key.name === "k") {
+    dispatch({ type: "SIDEBAR_SELECT_PREV" })
+    return true
+  }
+
+  if (key.name === "down") {
+    dispatch({ type: "SIDEBAR_SELECT_NEXT" })
+    return true
+  }
+
+  if (key.name === "s" || key.name === "j") {
+    dispatch({ type: "SIDEBAR_SELECT_NEXT" })
+    return true
+  }
+
+  if (key.name === "left") {
+    dispatch({ type: "SIDEBAR_COLLAPSE_SELECTION" })
+    return true
+  }
+
+  if (key.name === "a" || key.name === "h") {
+    dispatch({ type: "SIDEBAR_COLLAPSE_SELECTION" })
+    return true
+  }
+
+  if (key.name === "right") {
+    dispatch({ type: "SIDEBAR_EXPAND_SELECTION" })
+    return true
+  }
+
+  if (key.name === "d" || key.name === "l") {
+    dispatch({ type: "SIDEBAR_EXPAND_SELECTION" })
+    return true
+  }
+
+  if (key.name === "enter" || key.name === "return" || key.name === "space") {
+    dispatch({ type: "SIDEBAR_ACTIVATE_SELECTION" })
+    return true
+  }
+
+  if (key.name === "backspace" || key.name === "delete") {
+    dispatch({ type: "SIDEBAR_REQUEST_DELETE_SELECTION" })
+    return true
+  }
+
+  return false
 }
 
 export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
@@ -132,6 +231,19 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!textareaRef.current) {
+      return
+    }
+
+    if (state.modal || state.focusedPane === "sidebar") {
+      textareaRef.current.blur()
+      return
+    }
+
+    textareaRef.current.focus()
+  }, [state.document.path, state.focusedPane, state.modal])
 
   function clearLeaderTimeout(): void {
     if (!leaderTimeoutRef.current) {
@@ -175,6 +287,31 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       return
     }
 
+    if (handleSidebarKeyboardEvent(currentState, dispatch, key, leaderPendingRef.current)) {
+      key.preventDefault()
+      key.stopPropagation()
+      clearLeaderPending()
+      return
+    }
+
+    if (leaderPendingRef.current) {
+      const resolution = resolveLeaderKeyEvent(
+        leaderPendingRef.current,
+        currentState.leaderKey,
+        currentState.keybindings,
+        key,
+      )
+
+      key.preventDefault()
+      key.stopPropagation()
+      clearLeaderPending()
+
+      if (resolution.type === "command") {
+        dispatchCommand(dispatch, resolution.command)
+      }
+      return
+    }
+
     const resolution = resolveLeaderKeyEvent(
       leaderPendingRef.current,
       currentState.leaderKey,
@@ -208,6 +345,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
 
   const locked = state.modal !== null
   const unsavedChangesModal = state.modal?.kind === "unsaved_changes" ? state.modal : null
+  const deleteConfirmModal = state.modal?.kind === "delete_confirm" ? state.modal : null
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
   const createPathModal = state.modal?.kind === "create_path" ? state.modal : null
   const movePathModal = state.modal?.kind === "move_path" ? state.modal : null
@@ -232,7 +370,9 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           documentPath={state.document.path}
           text={state.document.text}
           textareaRef={textareaRef}
-          locked={locked}
+          focused={!locked && state.focusedPane === "editor"}
+          canRequestFocus={!locked}
+          onRequestFocus={() => runtime.dispatch({ type: "FOCUS_EDITOR" })}
           onTextChanged={(text) => runtime.dispatch({ type: "EDITOR_TEXT_CHANGED", text })}
         />
         <SidebarPane
@@ -241,6 +381,8 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           fileTree={state.fileTree}
           expandedDirs={state.expandedDirs}
           selectedPath={state.selectedPath}
+          cursorPath={state.sidebarCursorPath}
+          focused={state.focusedPane === "sidebar"}
           locked={locked}
           dispatch={(event) => runtime.dispatch(event)}
         />
@@ -272,6 +414,16 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           selectedOption={unsavedChangesModal.selectedOption}
           onChooseSave={() => runtime.dispatch({ type: "PROMPT_CHOOSE_SAVE" })}
           onChooseDontSave={() => runtime.dispatch({ type: "PROMPT_CHOOSE_DONT_SAVE" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
+      ) : null}
+
+      {deleteConfirmModal ? (
+        <DeleteConfirmModal
+          path={deleteConfirmModal.path}
+          nodeType={deleteConfirmModal.nodeType}
+          selectedOption={deleteConfirmModal.selectedOption}
+          onConfirm={() => runtime.dispatch({ type: "DELETE_CONFIRM_ACCEPT" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}
@@ -313,6 +465,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
 
       {shortcutHelpModal ? (
         <ShortcutHelpModal
+          leaderKey={state.leaderKey}
           keybindings={state.keybindings}
           onClose={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />

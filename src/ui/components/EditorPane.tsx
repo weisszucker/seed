@@ -7,11 +7,23 @@ type EditorPaneProps = {
   documentPath: string | null
   text: string
   textareaRef: { current: TextareaRenderable | null }
-  locked: boolean
+  focused: boolean
+  canRequestFocus: boolean
+  onRequestFocus: () => void
   onTextChanged: (text: string) => void
 }
 
-export function EditorPane({ sidebarVisible, title, documentPath, text, textareaRef, locked, onTextChanged }: EditorPaneProps) {
+export function EditorPane({
+  sidebarVisible,
+  title,
+  documentPath,
+  text,
+  textareaRef,
+  focused,
+  canRequestFocus,
+  onRequestFocus,
+  onTextChanged,
+}: EditorPaneProps) {
   return (
     <box
       width={sidebarVisible ? uiLayout.editorWidthPercent : "100%"}
@@ -22,6 +34,12 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
       marginLeft={uiLayout.panelOuterMarginX}
       marginRight={uiLayout.panelOuterMarginX}
       backgroundColor={uiColors.panelBackground}
+      onMouseDown={() => {
+        if (!canRequestFocus) {
+          return
+        }
+        onRequestFocus()
+      }}
     >
       <box height={1} flexShrink={0}>
         <text fg={uiColors.editorTitle}>{title}</text>
@@ -37,7 +55,7 @@ export function EditorPane({ sidebarVisible, title, documentPath, text, textarea
           }}
           placeholder="Start typing markdown..."
           flexGrow={1}
-          focused={!locked}
+          focused={focused}
           backgroundColor={uiColors.panelBackground}
           focusedBackgroundColor={uiColors.panelBackground}
           textColor={uiColors.textPrimary}

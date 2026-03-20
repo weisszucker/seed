@@ -1,13 +1,15 @@
 import type { KeybindingMap } from "../../core/types"
-import { formatLeaderKeybinding } from "../keybindings"
+import { formatKeybinding } from "../keybindings"
 import { uiColors, uiLayout } from "../../theme"
 
 type ShortcutHelpModalProps = {
+  leaderKey: string
   keybindings: KeybindingMap
   onClose: () => void
 }
 
 const shortcutRows: Array<{ label: string; command: keyof KeybindingMap }> = [
+  { label: "Shift Focus", command: "shiftFocus" },
   { label: "Quit", command: "quit" },
   { label: "Save", command: "save" },
   { label: "Save As", command: "saveAs" },
@@ -18,7 +20,7 @@ const shortcutRows: Array<{ label: string; command: keyof KeybindingMap }> = [
   { label: "Show Shortcut Help", command: "showShortcutHelp" },
 ]
 
-export function ShortcutHelpModal({ keybindings, onClose }: ShortcutHelpModalProps) {
+export function ShortcutHelpModal({ leaderKey, keybindings, onClose }: ShortcutHelpModalProps) {
   return (
     <box
       position="absolute"
@@ -56,7 +58,7 @@ export function ShortcutHelpModal({ keybindings, onClose }: ShortcutHelpModalPro
                 <text fg={uiColors.textPrimary}>{row.label}</text>
               </box>
               <box width="35%" justifyContent="flex-end">
-                <text fg={uiColors.sidebarTitle}>{formatLeaderKeybinding(keybindings[row.command])}</text>
+                <text fg={uiColors.sidebarTitle}>{formatKeybinding(leaderKey, keybindings[row.command])}</text>
               </box>
             </box>
           ))}
