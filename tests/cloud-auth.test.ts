@@ -108,6 +108,21 @@ describe("cloud auth service", () => {
     expect(credentials.read(credentialKeyForOwner("alice"))).toBe("cached-token")
   })
 
+  test("exposes cached token without validating it", async () => {
+    const credentials = new MemoryCredentialStore(true, {
+      [credentialKeyForGithubHost()]: "cached-token",
+    })
+    const identity = new FakeIdentityProvider("fresh-token")
+    const device = new FakeDeviceAuthClient("fresh-token")
+    const auth = new AuthService(credentials, identity, device)
+
+    const token = await auth.tryReuseCachedToken("alice")
+
+    expect(token).toBe("cached-token")
+    expect(identity.calls).toEqual([])
+    expect(device.calls).toBe(0)
+  })
+
   test("clears invalid cached token and re-authenticates with device flow", async () => {
     const credentials = new MemoryCredentialStore(true, {
       [credentialKeyForGithubHost()]: "stale-token",
@@ -142,6 +157,23 @@ describe("cloud auth service", () => {
     expect(credentials.read(credentialKeyForGithubHost())).toBe("cached-token")
     expect(credentials.read(credentialKeyForGithubAccount())).toBe("cached-token")
     expect(credentials.read(credentialKeyForOwner("alice"))).toBe("cached-token")
+  })
+
+  test("does not rewrite canonical credential entries when they already match", async () => {
+    const credentials = new MemoryCredentialStore(true, {
+      [credentialKeyForGithubHost()]: "cached-token",
+      [credentialKeyForGithubAccount()]: "cached-token",
+      [credentialKeyForOwner("alice")]: "cached-token",
+    })
+    const identity = new FakeIdentityProvider("cached-token")
+    const device = new FakeDeviceAuthClient("new-token")
+    const auth = new AuthService(credentials, identity, device)
+
+    const session = await auth.ensureAuthenticated("alice")
+
+    expect(session).toEqual({ token: "cached-token", userLogin: "alice" })
+    expect(credentials.setCount).toBe(0)
+    expect(device.calls).toBe(0)
   })
 
   test("fails fast when secure credential backend is unavailable", async () => {

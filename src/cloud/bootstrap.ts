@@ -60,25 +60,26 @@ export class RepoBootstrapper {
     private readonly logger: Logger = createNoopLogger({ component: "cloud.bootstrap" }),
   ) {}
 
-  async ensureReady(owner: string, repo: string, token: string, authenticatedLogin: string): Promise<RepoContext> {
+  async ensureReady(owner: string, repo: string, token: string, authenticatedLogin?: string): Promise<RepoContext> {
     const operation = this.logger.beginOperation("cloud.repo.bootstrap", {
       owner,
       repo,
     })
     const repoInfo = await this.githubClient.ensureRepository(owner, repo, token, authenticatedLogin)
-    const remoteUrl = repoInfo.remoteUrl || formatRemoteHttps(owner, repo)
+    let remoteUrl = repoInfo.remoteUrl || formatRemoteHttps(owner, repo)
     const localPath = join(this.rootDir, owner, repo)
+    let clonedThisRun = false
 
     await mkdir(dirname(localPath), { recursive: true })
     if (await pathExists(localPath)) {
-      await this.ensureLocalRemoteMatches(localPath, owner, repo)
+      remoteUrl = await this.ensureLocalRemoteMatches(localPath, owner, repo)
     } else {
       await this.runner.run("git", ["clone", remoteUrl, localPath])
+      clonedThisRun = true
     }
 
-    await this.ensureMainBranch(localPath)
-    await this.ensureInitializedRemote(localPath)
-    await this.ensureMainTracking(localPath)
+    await this.ensureHeadOnMain(localPath)
+    await this.ensureInitializedRemote(localPath, clonedThisRun)
     operation.succeed({
       local_path: localPath,
       remote_url: remoteUrl,
@@ -93,7 +94,31 @@ export class RepoBootstrapper {
     }
   }
 
-  private async ensureLocalRemoteMatches(localPath: string, owner: string, repo: string): Promise<void> {
+  async tryResolveLocalRepo(owner: string, repo: string): Promise<RepoContext | null> {
+    const localPath = join(this.rootDir, owner, repo)
+    if (!(await pathExists(localPath))) {
+      return null
+    }
+
+    try {
+      const remoteUrl = await this.ensureLocalRemoteMatches(localPath, owner, repo)
+      await this.ensureHeadOnMain(localPath)
+      return {
+        owner,
+        repo,
+        remoteUrl,
+        localPath,
+      }
+    } catch (error) {
+      this.logger.warn("cloud.repo.fast_path_unavailable", {
+        local_path: localPath,
+        reason: error instanceof Error ? error.message : String(error),
+      })
+      return null
+    }
+  }
+
+  private async ensureLocalRemoteMatches(localPath: string, owner: string, repo: string): Promise<string> {
     await this.runner.run("git", ["-C", localPath, "rev-parse", "--is-inside-work-tree"])
     const result = await this.runner.run("git", ["-C", localPath, "remote", "get-url", "origin"])
     const actualSlug = normalizeRemoteSlug(result.stdout.trim())
@@ -113,9 +138,18 @@ export class RepoBootstrapper {
       })
       throw error
     }
+
+    return result.stdout.trim() || formatRemoteHttps(owner, repo)
   }
 
-  private async ensureMainBranch(localPath: string): Promise<void> {
+  private async ensureHeadOnMain(localPath: string): Promise<void> {
+    const currentBranch = await this.runner.run("git", ["-C", localPath, "branch", "--show-current"], {
+      allowFailure: true,
+    })
+    if (currentBranch.stdout.trim() === "main") {
+      return
+    }
+
     const hasMain = await this.runner.run("git", ["-C", localPath, "rev-parse", "--verify", "main"], {
       allowFailure: true,
     })
@@ -126,10 +160,16 @@ export class RepoBootstrapper {
     await this.runner.run("git", ["-C", localPath, "checkout", "-B", "main"])
   }
 
-  private async ensureInitializedRemote(localPath: string): Promise<void> {
-    const remoteMain = await this.runner.run("git", ["-C", localPath, "ls-remote", "--heads", "origin", "main"])
-    if (remoteMain.stdout.trim().length > 0) {
+  private async ensureInitializedRemote(localPath: string, clonedThisRun: boolean): Promise<void> {
+    if (await this.hasRemoteMain(localPath)) {
       return
+    }
+
+    if (!clonedThisRun) {
+      await this.runner.run("git", ["-C", localPath, "fetch", "origin"])
+      if (await this.hasRemoteMain(localPath)) {
+        return
+      }
     }
 
     if (!(await directoryHasVisibleFiles(localPath))) {
@@ -137,15 +177,24 @@ export class RepoBootstrapper {
       await writeFile(readmePath, "# Seed Cloud Repo\n")
     }
 
+    const hasHead = await this.runner.run("git", ["-C", localPath, "rev-parse", "--verify", "HEAD"], {
+      allowFailure: true,
+    })
+    const status = await this.runner.run("git", ["-C", localPath, "status", "--porcelain"])
+
     await this.runner.run("git", ["-C", localPath, "add", "-A"])
-    await this.runner.run("git", ["-C", localPath, "commit", "--allow-empty", "-m", "Initialize seed cloud repository"])
+    if (hasHead.exitCode !== 0) {
+      await this.runner.run("git", ["-C", localPath, "commit", "--allow-empty", "-m", "Initialize seed cloud repository"])
+    } else if (status.stdout.trim().length > 0) {
+      await this.runner.run("git", ["-C", localPath, "commit", "-m", "Initialize seed cloud repository"])
+    }
     await this.runner.run("git", ["-C", localPath, "push", "-u", "origin", "main"])
   }
 
-  private async ensureMainTracking(localPath: string): Promise<void> {
-    await this.runner.run("git", ["-C", localPath, "fetch", "origin"])
-    await this.runner.run("git", ["-C", localPath, "branch", "--set-upstream-to", "origin/main", "main"], {
+  private async hasRemoteMain(localPath: string): Promise<boolean> {
+    const remoteMain = await this.runner.run("git", ["-C", localPath, "rev-parse", "--verify", "refs/remotes/origin/main"], {
       allowFailure: true,
     })
+    return remoteMain.exitCode === 0
   }
 }

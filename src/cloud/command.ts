@@ -102,6 +102,31 @@ export class CommandExecutionError extends Error {
   }
 }
 
+const AUTH_FAILURE_PATTERNS = [
+  "authentication failed",
+  "bad credentials",
+  "invalid token",
+  "token is invalid or expired",
+  "terminal prompts disabled",
+  "could not read username",
+  "invalid username or password",
+  "http basic: access denied",
+  "access denied",
+]
+
+export function isAuthenticationFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const details =
+    error instanceof CommandExecutionError
+      ? [error.message, error.stderr, error.stdout].join("\n").toLowerCase()
+      : error.message.toLowerCase()
+
+  return AUTH_FAILURE_PATTERNS.some((pattern) => details.includes(pattern))
+}
+
 export class NodeCommandRunner implements CommandRunner {
   constructor(private readonly logger?: Logger) {}
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { CommandOptions, CommandResult, CommandRunner } from "../src/cloud/command"
-import { CommandExecutionError, createGithubAuthenticatedRunner } from "../src/cloud/command"
+import { CommandExecutionError, createGithubAuthenticatedRunner, isAuthenticationFailure } from "../src/cloud/command"
 
 class RecordingRunner implements CommandRunner {
   call:
@@ -96,5 +96,22 @@ describe("github authenticated runner", () => {
 
     expect(error.message).toContain("[REDACTED]")
     expect(error.message).not.toContain("secret-token")
+  })
+
+  test("detects git and github authentication failures", () => {
+    const gitError = new CommandExecutionError(
+      "git",
+      ["fetch", "origin"],
+      undefined,
+      {
+        stdout: "",
+        stderr: "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        exitCode: 128,
+      },
+    )
+
+    expect(isAuthenticationFailure(gitError)).toBeTrue()
+    expect(isAuthenticationFailure(new Error("GitHub authentication failed. Token is invalid or expired."))).toBeTrue()
+    expect(isAuthenticationFailure(new Error("network timeout"))).toBeFalse()
   })
 })

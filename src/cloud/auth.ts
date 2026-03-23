@@ -42,6 +42,24 @@ export class AuthService {
     this.logger = logger
   }
 
+  async tryReuseCachedToken(owner: string): Promise<string | null> {
+    if (!this.credentialStore.isAvailable()) {
+      return null
+    }
+
+    for (const key of this.keysForLookup(owner)) {
+      if (authDebugEnabled()) {
+        this.logger.debug("cloud.auth.lookup_key", { credential_key: key })
+      }
+      const cached = await this.credentialStore.get(key)
+      if (cached) {
+        return cached
+      }
+    }
+
+    return null
+  }
+
   async ensureAuthenticated(owner: string): Promise<AuthSession> {
     const operation = this.logger.beginOperation("cloud.auth.ensure", { owner })
 
@@ -56,38 +74,34 @@ export class AuthService {
       throw error
     }
 
-    for (const key of this.keysForLookup(owner)) {
-      if (authDebugEnabled()) {
-        this.logger.debug("cloud.auth.lookup_key", { credential_key: key })
-      }
-      const cached = await this.credentialStore.get(key)
-      if (!cached) {
+    for (const lookup of await this.lookupCachedTokens(owner)) {
+      if (!lookup.token) {
         if (authDebugEnabled()) {
-          this.logger.debug("cloud.auth.lookup_miss", { credential_key: key })
+          this.logger.debug("cloud.auth.lookup_miss", { credential_key: lookup.key })
         }
         continue
       }
 
       try {
-        const user = await this.githubClient.getAuthenticatedUser(cached)
-        await this.persistToken(owner, user.login, cached)
+        const user = await this.githubClient.getAuthenticatedUser(lookup.token)
+        await this.persistToken(owner, user.login, lookup.token)
         if (authDebugEnabled()) {
           this.logger.debug("cloud.auth.cache_hit", {
-            credential_key: key,
+            credential_key: lookup.key,
             user_login: user.login,
           })
         }
         operation.succeed({ auth_source: "credential_cache", user_login: user.login })
         return {
-          token: cached,
+          token: lookup.token,
           userLogin: user.login,
         }
       } catch (error) {
-        await this.credentialStore.clear(key)
+        await this.credentialStore.clear(lookup.key)
         const message = error instanceof Error ? error.message : "Authentication failed"
         console.info(`[seed-cloud] Stored credential rejected: ${message}`)
         this.logger.warn("cloud.auth.cache_rejected", {
-          credential_key: key,
+          credential_key: lookup.key,
           reason: message,
         })
       }
@@ -102,6 +116,22 @@ export class AuthService {
       token,
       userLogin: user.login,
     }
+  }
+
+  private async lookupCachedTokens(owner: string): Promise<Array<{ key: string; token: string | null }>> {
+    const results: Array<{ key: string; token: string | null }> = []
+
+    for (const key of this.keysForLookup(owner)) {
+      if (authDebugEnabled()) {
+        this.logger.debug("cloud.auth.lookup_key", { credential_key: key })
+      }
+      results.push({
+        key,
+        token: await this.credentialStore.get(key),
+      })
+    }
+
+    return results
   }
 
   private keysForLookup(owner: string): string[] {
@@ -128,6 +158,10 @@ export class AuthService {
     for (const key of keys) {
       if (authDebugEnabled()) {
         this.logger.debug("cloud.auth.persist_key", { credential_key: key })
+      }
+      const existing = await this.credentialStore.get(key)
+      if (existing === token) {
+        continue
       }
       await this.credentialStore.set(key, token)
     }

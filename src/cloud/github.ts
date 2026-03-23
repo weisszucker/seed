@@ -36,7 +36,12 @@ export class GithubClient {
     return await response.json()
   }
 
-  async ensureRepository(owner: string, repo: string, token: string, authenticatedLogin: string): Promise<GithubRepoInfo> {
+  async ensureRepository(
+    owner: string,
+    repo: string,
+    token: string,
+    authenticatedLogin?: string,
+  ): Promise<GithubRepoInfo> {
     const existing = await this.getRepository(owner, repo, token)
     if (existing) {
       return { remoteUrl: existing.clone_url, created: false }
@@ -49,7 +54,8 @@ export class GithubClient {
     }
 
     let createResponse: Response
-    if (owner.toLowerCase() === authenticatedLogin.toLowerCase()) {
+    const login = authenticatedLogin ?? (await this.getAuthenticatedUser(token)).login
+    if (owner.toLowerCase() === login.toLowerCase()) {
       createResponse = await this.request("/user/repos", {
         method: "POST",
         token,
