@@ -62,7 +62,7 @@ fi
         cwd: tempRoot,
         env: {
           ...process.env,
-          PATH: `${stubDir}:${process.env.PATH ?? ""}`,
+          PATH: `${stubDir}:/usr/bin:/bin`,
         },
       })
 

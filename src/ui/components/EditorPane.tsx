@@ -1,6 +1,14 @@
-import type { TextareaRenderable } from "@opentui/core"
+import { useEffect, useRef } from "react"
+import type { SyntaxStyle, TextareaRenderable } from "@opentui/core"
+
 import { uiColors, uiLayout } from "../../theme"
 import { EDITOR_TEXTAREA_KEYBINDINGS } from "../keybindings"
+import {
+  getEditorHighlights,
+  syncEditorHighlights,
+  type AppliedHighlightState,
+  type SyntaxHighlightClient,
+} from "../editorHighlighting"
 
 type EditorPaneProps = {
   sidebarVisible: boolean
@@ -8,6 +16,8 @@ type EditorPaneProps = {
   documentPath: string | null
   text: string
   textareaRef: { current: TextareaRenderable | null }
+  treeSitterClient: SyntaxHighlightClient
+  syntaxStyle: SyntaxStyle
   focused: boolean
   canRequestFocus: boolean
   onRequestFocus: () => void
@@ -20,11 +30,60 @@ export function EditorPane({
   documentPath,
   text,
   textareaRef,
+  treeSitterClient,
+  syntaxStyle,
   focused,
   canRequestFocus,
   onRequestFocus,
   onTextChanged,
 }: EditorPaneProps) {
+  const highlightRequestVersionRef = useRef(0)
+  const appliedHighlightStateRef = useRef<AppliedHighlightState>({
+    textarea: null,
+    signature: "",
+  })
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      return
+    }
+
+    const requestVersion = highlightRequestVersionRef.current + 1
+    highlightRequestVersionRef.current = requestVersion
+
+    let active = true
+
+    void (async () => {
+      let highlights
+
+      try {
+        highlights = await getEditorHighlights({
+          text,
+          path: documentPath,
+          syntaxStyle,
+          treeSitterClient,
+        })
+      } catch {
+        return
+      }
+
+      if (!active || highlightRequestVersionRef.current !== requestVersion || textareaRef.current !== textarea) {
+        return
+      }
+
+      appliedHighlightStateRef.current = syncEditorHighlights(
+        textarea,
+        highlights,
+        appliedHighlightStateRef.current,
+      )
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [documentPath, syntaxStyle, text, textareaRef, treeSitterClient])
+
   return (
     <box
       width={sidebarVisible ? uiLayout.editorWidthPercent : "100%"}
@@ -58,6 +117,7 @@ export function EditorPane({
           placeholder="Start typing markdown..."
           flexGrow={1}
           focused={focused}
+          syntaxStyle={syntaxStyle}
           backgroundColor={uiColors.panelBackground}
           focusedBackgroundColor={uiColors.panelBackground}
           textColor={uiColors.textPrimary}

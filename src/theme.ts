@@ -37,6 +37,7 @@ export const syntaxColors = {
   plain: "#c9ced5",
   inlineCode: "#cfb381",
   link: "#84b8d9",
+  linkUrl: "#9ad0f2",
   bold: "#e2bf88",
   italic: "#b99bbf",
   codeFence: "#7aa8cc",
@@ -44,6 +45,15 @@ export const syntaxColors = {
   heading: "#88c0aa",
   quote: "#95b086",
   list: "#b3c5a6",
+  keyword: "#d8a676",
+  type: "#8fb7d3",
+  string: "#c4cf95",
+  number: "#d9a6a6",
+  operator: "#c9ced5",
+  punctuation: "#8d949d",
+  constant: "#d6ba8a",
+  variable: "#d7dbe0",
+  label: "#acc8de",
 } as const
 
 export function getContentMaxWidth(sidebarVisible: boolean): number {

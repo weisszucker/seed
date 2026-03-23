@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
-import type { KeyEvent, TextareaRenderable } from "@opentui/core"
+import { type KeyEvent, type SyntaxStyle, type TextareaRenderable, type TreeSitterClient } from "@opentui/core"
 import { basename } from "node:path"
 
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
@@ -20,6 +20,7 @@ import {
   type CommandName,
 } from "./keybindings"
 import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
+import { createEditorHighlightClient, createEditorSyntaxStyle } from "./editorHighlighting"
 
 const LEADER_TIMEOUT_MS = 1500
 function formatTitle(path: string | null): string {
@@ -218,12 +219,34 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const leaderPendingRef = useRef(false)
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const treeSitterClientRef = useRef<TreeSitterClient | null>(null)
+  const syntaxStyleRef = useRef<SyntaxStyle | null>(null)
+
+  if (!treeSitterClientRef.current) {
+    treeSitterClientRef.current = createEditorHighlightClient(cwd)
+  }
+
+  if (!syntaxStyleRef.current) {
+    syntaxStyleRef.current = createEditorSyntaxStyle()
+  }
+
+  const treeSitterClient = treeSitterClientRef.current
+  const syntaxStyle = syntaxStyleRef.current
 
   useEffect(() => runtime.subscribe(setState), [runtime])
 
   useEffect(() => {
     runtime.dispatch({ type: "APP_STARTED" })
   }, [runtime])
+
+  useEffect(() => {
+    void treeSitterClient.preloadParser("markdown")
+
+    return () => {
+      void treeSitterClient.destroy()
+      syntaxStyle.destroy()
+    }
+  }, [syntaxStyle, treeSitterClient])
 
   useEffect(() => {
     leaderPendingRef.current = leaderPending
@@ -382,6 +405,8 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           documentPath={state.document.path}
           text={state.document.text}
           textareaRef={textareaRef}
+          treeSitterClient={treeSitterClient}
+          syntaxStyle={syntaxStyle}
           focused={!locked && state.focusedPane === "editor"}
           canRequestFocus={!locked}
           onRequestFocus={() => runtime.dispatch({ type: "FOCUS_EDITOR" })}

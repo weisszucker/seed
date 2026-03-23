@@ -3,7 +3,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { createSeedLogger } from "../src/logging/logger"
+import { createSeedLogger, FileLogSink } from "../src/logging/logger"
+
+const FIXED_LOG_DATE = "2026-03-14"
+const FIXED_NOW = () => new Date(`${FIXED_LOG_DATE}T12:00:00.000Z`)
 
 describe("seed logger", () => {
   test("writes runtime and error jsonl logs to disk", async () => {
@@ -14,6 +17,7 @@ describe("seed logger", () => {
         component: "test.logger",
         logRoot,
         sessionId: "session-1",
+        sink: await FileLogSink.create(logRoot, FIXED_NOW),
       })
 
       logger.info("test.started", { repo: "alice/demo" })
@@ -22,8 +26,8 @@ describe("seed logger", () => {
       })
       await logger.close()
 
-      const runtime = await readFile(join(logRoot, "runtime-2026-03-14.jsonl"), "utf8")
-      const error = await readFile(join(logRoot, "error-2026-03-14.jsonl"), "utf8")
+      const runtime = await readFile(join(logRoot, `runtime-${FIXED_LOG_DATE}.jsonl`), "utf8")
+      const error = await readFile(join(logRoot, `error-${FIXED_LOG_DATE}.jsonl`), "utf8")
 
       expect(runtime).toContain("\"event\":\"test.started\"")
       expect(runtime).toContain("\"event\":\"test.failed\"")
@@ -44,6 +48,7 @@ describe("seed logger", () => {
         component: "test.logger",
         logRoot,
         sessionId: "session-2",
+        sink: await FileLogSink.create(logRoot, FIXED_NOW),
       })
 
       const child = logger.child({ owner: "alice", repo: "alice/demo" })
@@ -51,7 +56,7 @@ describe("seed logger", () => {
       operation.succeed()
       await logger.close()
 
-      const runtime = await readFile(join(logRoot, "runtime-2026-03-14.jsonl"), "utf8")
+      const runtime = await readFile(join(logRoot, `runtime-${FIXED_LOG_DATE}.jsonl`), "utf8")
       expect(runtime).toContain("\"event\":\"cloud.sync.startup.start\"")
       expect(runtime).toContain("\"event\":\"cloud.sync.startup.success\"")
       expect(runtime).toContain("\"owner\":\"alice\"")
