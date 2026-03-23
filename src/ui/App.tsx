@@ -13,7 +13,12 @@ import { SidebarPane } from "./components/SidebarPane"
 import { ShortcutHelpModal } from "./components/ShortcutHelpModal"
 import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
-import { formatKeybinding, resolveLeaderKeyEvent, type CommandName } from "./keybindings"
+import {
+  formatKeybinding,
+  resolveLeaderKeyEvent,
+  shouldInsertEditorTab,
+  type CommandName,
+} from "./keybindings"
 import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
 
 const LEADER_TIMEOUT_MS = 1500
@@ -291,6 +296,13 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       key.preventDefault()
       key.stopPropagation()
       clearLeaderPending()
+      return
+    }
+
+    if (shouldInsertEditorTab(currentState, leaderPendingRef.current, key)) {
+      key.preventDefault()
+      key.stopPropagation()
+      textareaRef.current?.insertText("\t")
       return
     }
 

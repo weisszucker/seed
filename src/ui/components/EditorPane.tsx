@@ -1,5 +1,6 @@
 import type { TextareaRenderable } from "@opentui/core"
 import { uiColors, uiLayout } from "../../theme"
+import { EDITOR_TEXTAREA_KEYBINDINGS } from "../keybindings"
 
 type EditorPaneProps = {
   sidebarVisible: boolean
@@ -49,6 +50,7 @@ export function EditorPane({
           key={documentPath ?? "__untitled__"}
           ref={textareaRef}
           initialValue={text}
+          keyBindings={EDITOR_TEXTAREA_KEYBINDINGS}
           onContentChange={() => {
             const nextText = textareaRef.current?.plainText ?? ""
             onTextChanged(nextText)

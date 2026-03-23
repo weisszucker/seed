@@ -1,6 +1,6 @@
 import type { KeyEvent } from "@opentui/core"
 
-import type { KeybindingMap } from "../core/types"
+import type { EditorState, KeybindingMap } from "../core/types"
 
 export type CommandName = keyof KeybindingMap
 
@@ -9,6 +9,19 @@ type ParsedBinding = {
   shift: boolean
   meta: boolean
   key: string
+}
+
+type EditorTextareaKeyBinding = {
+  name: string
+  action:
+    | "visual-line-home"
+    | "visual-line-end"
+    | "select-visual-line-home"
+    | "select-visual-line-end"
+  ctrl?: boolean
+  shift?: boolean
+  meta?: boolean
+  super?: boolean
 }
 
 function parseBinding(binding: string): ParsedBinding {
@@ -85,4 +98,27 @@ export function resolveLeaderKeyEvent(
 
 export function formatKeybinding(leaderKey: string, binding: string): string {
   return `${leaderKey} ${binding}`
+}
+
+export const EDITOR_TEXTAREA_KEYBINDINGS: EditorTextareaKeyBinding[] = [
+  { name: "home", action: "visual-line-home" },
+  { name: "home", shift: true, action: "select-visual-line-home" },
+  { name: "end", action: "visual-line-end" },
+  { name: "end", shift: true, action: "select-visual-line-end" },
+]
+
+export function shouldInsertEditorTab(
+  state: Pick<EditorState, "focusedPane" | "modal">,
+  leaderPending: boolean,
+  keyEvent: KeyEvent,
+): boolean {
+  return (
+    state.focusedPane === "editor" &&
+    state.modal === null &&
+    !leaderPending &&
+    keyEvent.name === "tab" &&
+    !keyEvent.ctrl &&
+    !keyEvent.meta &&
+    !keyEvent.shift
+  )
 }

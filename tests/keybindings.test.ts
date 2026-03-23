@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test"
 
 import { DEFAULT_KEYBINDINGS, DEFAULT_LEADER_KEY } from "../src/core/types"
-import { commandFromKeyEvent, resolveLeaderKeyEvent } from "../src/ui/keybindings"
+import {
+  commandFromKeyEvent,
+  EDITOR_TEXTAREA_KEYBINDINGS,
+  resolveLeaderKeyEvent,
+  shouldInsertEditorTab,
+} from "../src/ui/keybindings"
 
 describe("keybinding matching", () => {
   test("matches shift+s for saveAs after leader", () => {
@@ -137,5 +142,70 @@ describe("keybinding matching", () => {
     } as never)
 
     expect(resolution).toEqual({ type: "command", command: "shiftFocus" })
+  })
+
+  test("editor home and end keys use visible line bounds", () => {
+    expect(EDITOR_TEXTAREA_KEYBINDINGS).toContainEqual({
+      name: "home",
+      action: "visual-line-home",
+    })
+    expect(EDITOR_TEXTAREA_KEYBINDINGS).toContainEqual({
+      name: "home",
+      shift: true,
+      action: "select-visual-line-home",
+    })
+    expect(EDITOR_TEXTAREA_KEYBINDINGS).toContainEqual({
+      name: "end",
+      action: "visual-line-end",
+    })
+    expect(EDITOR_TEXTAREA_KEYBINDINGS).toContainEqual({
+      name: "end",
+      shift: true,
+      action: "select-visual-line-end",
+    })
+  })
+
+  test("plain tab inserts indentation when editor is focused", () => {
+    const shouldInsert = shouldInsertEditorTab(
+      {
+        focusedPane: "editor",
+        modal: null,
+      },
+      false,
+      {
+        name: "tab",
+        ctrl: false,
+        shift: false,
+        meta: false,
+        option: false,
+        repeated: false,
+        eventType: "press",
+        sequence: "",
+      } as never,
+    )
+
+    expect(shouldInsert).toBe(true)
+  })
+
+  test("tab does not insert indentation while leader is pending", () => {
+    const shouldInsert = shouldInsertEditorTab(
+      {
+        focusedPane: "editor",
+        modal: null,
+      },
+      true,
+      {
+        name: "tab",
+        ctrl: false,
+        shift: false,
+        meta: false,
+        option: false,
+        repeated: false,
+        eventType: "press",
+        sequence: "",
+      } as never,
+    )
+
+    expect(shouldInsert).toBe(false)
   })
 })
