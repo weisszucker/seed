@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
-import { type KeyEvent, type SyntaxStyle, type TextareaRenderable, type TreeSitterClient } from "@opentui/core"
+import { type InputRenderable, type KeyEvent, type SyntaxStyle, type TextareaRenderable, type TreeSitterClient } from "@opentui/core"
 import { basename } from "node:path"
 
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
@@ -15,6 +15,7 @@ import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
 import {
   formatKeybinding,
+  matchesEditableUndoShortcut,
   resolveLeaderKeyEvent,
   shouldInsertEditorTab,
   type CommandName,
@@ -205,6 +206,10 @@ function handleSidebarKeyboardEvent(
   return false
 }
 
+type UndoableRenderable = {
+  undo: () => boolean
+}
+
 export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const renderer = useRenderer()
   const runtimeRef = useRef<SeedRuntime | null>(null)
@@ -217,6 +222,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
   const [state, setState] = useState(runtime.getState())
   const [leaderPending, setLeaderPending] = useState(false)
   const textareaRef = useRef<TextareaRenderable | null>(null)
+  const saveAsInputRef = useRef<InputRenderable | null>(null)
+  const createPathInputRef = useRef<InputRenderable | null>(null)
+  const moveSourceInputRef = useRef<InputRenderable | null>(null)
+  const moveDestinationInputRef = useRef<InputRenderable | null>(null)
   const leaderPendingRef = useRef(false)
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const treeSitterClientRef = useRef<TreeSitterClient | null>(null)
@@ -299,6 +308,43 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
     }, LEADER_TIMEOUT_MS)
   }
 
+  function getActiveUndoTarget(currentState: EditorState): UndoableRenderable | null {
+    if (currentState.modal?.kind === "save_as") {
+      return saveAsInputRef.current
+    }
+
+    if (currentState.modal?.kind === "create_path") {
+      return createPathInputRef.current
+    }
+
+    if (currentState.modal?.kind === "move_path") {
+      return currentState.modal.focusedField === "source" ? moveSourceInputRef.current : moveDestinationInputRef.current
+    }
+
+    if (currentState.modal || currentState.focusedPane !== "editor") {
+      return null
+    }
+
+    return textareaRef.current
+  }
+
+  function tryHandleEditableUndo(currentState: EditorState, key: KeyEvent): boolean {
+    if (!matchesEditableUndoShortcut(process.platform, key)) {
+      return false
+    }
+
+    const target = getActiveUndoTarget(currentState)
+    if (!target) {
+      return false
+    }
+
+    key.preventDefault()
+    key.stopPropagation()
+    target.undo()
+    clearLeaderPending()
+    return true
+  }
+
   useKeyboard((key) => {
     const currentState = runtime.getState()
     const dispatch = (event: AppEvent) => runtime.dispatch(event)
@@ -311,6 +357,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       return
     }
     if (modalResult === "pass_through") {
+      if (tryHandleEditableUndo(currentState, key)) {
+        return
+      }
+
       clearLeaderPending()
       return
     }
@@ -344,6 +394,10 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       if (resolution.type === "command") {
         dispatchCommand(dispatch, resolution.command)
       }
+      return
+    }
+
+    if (tryHandleEditableUndo(currentState, key)) {
       return
     }
 
@@ -470,6 +524,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           title="Save As"
           pathInput={saveAsModal.pathInput}
           placeholder="Enter path from workspace root"
+          inputRef={saveAsInputRef}
           onPathChange={(path) => runtime.dispatch({ type: "SAVE_AS_PATH_UPDATED", path })}
           onSubmit={() => runtime.dispatch({ type: "SAVE_AS_SUBMITTED" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
@@ -481,6 +536,7 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           title="Create"
           pathInput={createPathModal.pathInput}
           placeholder="Enter path from workspace root"
+          inputRef={createPathInputRef}
           onPathChange={(path) => runtime.dispatch({ type: "CREATE_PATH_INPUT_UPDATED", path })}
           onSubmit={() => runtime.dispatch({ type: "CREATE_PATH_SUBMITTED" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
@@ -492,6 +548,8 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
           sourcePathInput={movePathModal.sourcePathInput}
           destinationPathInput={movePathModal.destinationPathInput}
           focusedField={movePathModal.focusedField}
+          sourceInputRef={moveSourceInputRef}
+          destinationInputRef={moveDestinationInputRef}
           onSourcePathChange={(path) => runtime.dispatch({ type: "MOVE_SOURCE_PATH_UPDATED", path })}
           onDestinationPathChange={(path) => runtime.dispatch({ type: "MOVE_DESTINATION_PATH_UPDATED", path })}
           onFocusChange={(field) => runtime.dispatch({ type: "MOVE_PATH_FOCUS_CHANGED", field })}

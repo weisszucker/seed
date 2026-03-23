@@ -100,6 +100,25 @@ export function formatKeybinding(leaderKey: string, binding: string): string {
   return `${leaderKey} ${binding}`
 }
 
+export function matchesEditableUndoShortcut(
+  platform: NodeJS.Platform,
+  keyEvent: Pick<KeyEvent, "name" | "ctrl" | "meta" | "super" | "shift" | "option">,
+): boolean {
+  if (keyEvent.name.toLowerCase() !== "z") {
+    return false
+  }
+
+  if (Boolean(keyEvent.shift) || Boolean(keyEvent.option)) {
+    return false
+  }
+
+  if (platform === "darwin") {
+    return Boolean(keyEvent.ctrl) || Boolean(keyEvent.meta) || Boolean(keyEvent.super)
+  }
+
+  return Boolean(keyEvent.ctrl) && !keyEvent.meta && !keyEvent.super
+}
+
 export const EDITOR_TEXTAREA_KEYBINDINGS: EditorTextareaKeyBinding[] = [
   { name: "home", action: "visual-line-home" },
   { name: "home", shift: true, action: "select-visual-line-home" },

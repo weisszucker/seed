@@ -1,9 +1,13 @@
+import type { InputRenderable } from "@opentui/core"
+
 import { uiColors, uiLayout } from "../../theme"
 
 type MovePathModalProps = {
   sourcePathInput: string
   destinationPathInput: string
   focusedField: "source" | "destination"
+  sourceInputRef: { current: InputRenderable | null }
+  destinationInputRef: { current: InputRenderable | null }
   onSourcePathChange: (path: string) => void
   onDestinationPathChange: (path: string) => void
   onFocusChange: (field: "source" | "destination") => void
@@ -15,6 +19,8 @@ export function MovePathModal({
   sourcePathInput,
   destinationPathInput,
   focusedField,
+  sourceInputRef,
+  destinationInputRef,
   onSourcePathChange,
   onDestinationPathChange,
   onFocusChange,
@@ -53,6 +59,7 @@ export function MovePathModal({
 
         <box flexDirection="column" marginTop={uiLayout.modalHeaderBodyGap} gap={uiLayout.rowGap}>
           <input
+            ref={sourceInputRef}
             width="100%"
             value={sourcePathInput}
             onChange={onSourcePathChange}
@@ -63,6 +70,7 @@ export function MovePathModal({
             textColor={uiColors.textPrimary}
           />
           <input
+            ref={destinationInputRef}
             width="100%"
             value={destinationPathInput}
             onChange={onDestinationPathChange}

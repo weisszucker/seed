@@ -1,15 +1,26 @@
+import type { InputRenderable } from "@opentui/core"
+
 import { uiColors, uiLayout } from "../../theme"
 
 type SaveAsModalProps = {
   title: string
   pathInput: string
   placeholder: string
+  inputRef: { current: InputRenderable | null }
   onPathChange: (path: string) => void
   onSubmit: () => void
   onCancel: () => void
 }
 
-export function SaveAsModal({ title, pathInput, placeholder, onPathChange, onSubmit, onCancel }: SaveAsModalProps) {
+export function SaveAsModal({
+  title,
+  pathInput,
+  placeholder,
+  inputRef,
+  onPathChange,
+  onSubmit,
+  onCancel,
+}: SaveAsModalProps) {
   return (
     <box
       position="absolute"
@@ -41,6 +52,7 @@ export function SaveAsModal({ title, pathInput, placeholder, onPathChange, onSub
         </box>
 
         <input
+          ref={inputRef}
           width="100%"
           value={pathInput}
           onChange={onPathChange}

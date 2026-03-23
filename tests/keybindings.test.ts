@@ -4,6 +4,7 @@ import { DEFAULT_KEYBINDINGS, DEFAULT_LEADER_KEY } from "../src/core/types"
 import {
   commandFromKeyEvent,
   EDITOR_TEXTAREA_KEYBINDINGS,
+  matchesEditableUndoShortcut,
   resolveLeaderKeyEvent,
   shouldInsertEditorTab,
 } from "../src/ui/keybindings"
@@ -207,5 +208,57 @@ describe("keybinding matching", () => {
     )
 
     expect(shouldInsert).toBe(false)
+  })
+
+  test("matches cmd+z on macOS when command is reported as super", () => {
+    const matches = matchesEditableUndoShortcut("darwin", {
+      name: "z",
+      ctrl: false,
+      shift: false,
+      meta: false,
+      super: true,
+      option: false,
+    })
+
+    expect(matches).toBe(true)
+  })
+
+  test("matches cmd+z on macOS when command is reported as meta", () => {
+    const matches = matchesEditableUndoShortcut("darwin", {
+      name: "z",
+      ctrl: false,
+      shift: false,
+      meta: true,
+      super: false,
+      option: false,
+    })
+
+    expect(matches).toBe(true)
+  })
+
+  test("matches ctrl+z on Linux", () => {
+    const matches = matchesEditableUndoShortcut("linux", {
+      name: "z",
+      ctrl: true,
+      shift: false,
+      meta: false,
+      super: false,
+      option: false,
+    })
+
+    expect(matches).toBe(true)
+  })
+
+  test("matches ctrl+z on macOS as a terminal fallback", () => {
+    const matches = matchesEditableUndoShortcut("darwin", {
+      name: "z",
+      ctrl: true,
+      shift: false,
+      meta: false,
+      super: false,
+      option: false,
+    })
+
+    expect(matches).toBe(true)
   })
 })
