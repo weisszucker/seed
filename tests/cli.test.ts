@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 
 import { CliUsageError, parseCliArgs, parseRepoSlug, runCli } from "../src/cli"
 
@@ -56,6 +56,10 @@ describe("cli cloud repo fallback", () => {
     cloudRepoStore = new MemoryCloudRepoStore()
     stderr = ""
     startCloudCalls = []
+    process.exitCode = 0
+  })
+
+  afterEach(() => {
     process.exitCode = 0
   })
 

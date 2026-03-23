@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 PM="${1:-bun}"
+BIN_DIR="$ROOT_DIR/bin"
+BIN_PATH="$BIN_DIR/seed"
 
 if [[ "$PM" != "bun" && "$PM" != "npm" ]]; then
   echo "Unsupported package manager: $PM"
@@ -21,6 +23,15 @@ if ! command -v "$PM" >/dev/null 2>&1; then
   fi
   exit 1
 fi
+
+echo "Preparing local 'seed' executable..."
+mkdir -p "$BIN_DIR"
+cat >"$BIN_PATH" <<'EOF'
+#!/usr/bin/env bun
+
+import "../src/main.ts"
+EOF
+chmod +x "$BIN_PATH"
 
 echo "Installing dependencies with $PM..."
 if [[ "$PM" == "bun" ]]; then
