@@ -74,6 +74,18 @@ describe("editor highlighting", () => {
     expect(mapTreeSitterGroupToStyleName("unknown.scope")).toBeNull()
   })
 
+  test("uses different styles for inline code and bold markdown", () => {
+    expect(syntaxStyle.getStyle("raw")).toMatchObject({
+      fg: expect.anything(),
+      bg: expect.anything(),
+    })
+    expect(syntaxStyle.getStyle("strong")).toMatchObject({
+      fg: expect.anything(),
+      bold: true,
+    })
+    expect(syntaxStyle.getStyle("strong")?.bg).toBeUndefined()
+  })
+
   test("filters conceal and spell ranges while preserving visible markdown highlights", () => {
     const strongStyleId = syntaxStyle.getStyleId("strong")!
     const linkUrlStyleId = syntaxStyle.getStyleId("linkUrl")!

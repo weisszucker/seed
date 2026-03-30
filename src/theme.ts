@@ -35,7 +35,8 @@ export const uiColors = {
 
 export const syntaxColors = {
   plain: "#c9ced5",
-  inlineCode: "#cfb381",
+  inlineCode: "#8fc7c2",
+  inlineCodeBackground: "#1e2b2a",
   link: "#84b8d9",
   linkUrl: "#9ad0f2",
   bold: "#e2bf88",

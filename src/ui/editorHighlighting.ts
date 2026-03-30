@@ -55,7 +55,13 @@ const THEME_DEFINITIONS: ThemeTokenStyle[] = [
   { scope: ["linkUrl"], style: { foreground: syntaxColors.linkUrl, underline: true } },
   { scope: ["list"], style: { foreground: syntaxColors.list } },
   { scope: ["quote"], style: { foreground: syntaxColors.quote, italic: true } },
-  { scope: ["raw"], style: { foreground: syntaxColors.inlineCode } },
+  {
+    scope: ["raw"],
+    style: {
+      foreground: syntaxColors.inlineCode,
+      background: syntaxColors.inlineCodeBackground,
+    },
+  },
   { scope: ["rawBlock"], style: { foreground: syntaxColors.codeBlock } },
   { scope: ["label"], style: { foreground: syntaxColors.label } },
   { scope: ["keyword"], style: { foreground: syntaxColors.keyword, bold: true } },
