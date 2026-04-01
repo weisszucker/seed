@@ -8,7 +8,14 @@ export type UserConfig = {
   keybindings?: Partial<KeybindingMap>
 }
 
+const SEED_CONFIG_PATH_ENV = "SEED_CONFIG_PATH"
+
 export function getUserConfigPath(): string {
+  const overridePath = process.env[SEED_CONFIG_PATH_ENV]?.trim()
+  if (overridePath) {
+    return overridePath
+  }
+
   return join(homedir(), ".seed", "setting.json")
 }
 
