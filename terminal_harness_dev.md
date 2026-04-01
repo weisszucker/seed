@@ -833,12 +833,12 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 2: Prompt And File Flow Coverage
 
-- [ ] Add tests for dirty new-file flow opening the unsaved-changes prompt.
-- [ ] Add tests proving editor input is blocked while a modal is visible.
-- [ ] Add tests for `Don't Save` executing the pending action.
-- [ ] Add tests for `Save` executing save then the pending action.
-- [ ] Add tests for save-as flow on untitled buffers.
-- [ ] Add tests for visible status-line feedback in key flows.
+- [x] Add tests for dirty new-file flow opening the unsaved-changes prompt.
+- [x] Add tests proving editor input is blocked while a modal is visible.
+- [x] Add tests for `Don't Save` executing the pending action.
+- [x] Add tests for `Save` executing save then the pending action.
+- [x] Add tests for save-as flow on untitled buffers.
+- [x] Add tests for visible status-line feedback in key flows.
 
 ### Phase 2: Mouse Coverage
 
