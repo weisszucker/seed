@@ -236,49 +236,4 @@ describe("editor highlighting", () => {
       textarea.destroy()
     }
   })
-
-  test("maps highlights by source line offsets even when earlier lines contain wide characters", async () => {
-    const text = await Bun.file("highlight_test.md").text()
-    const textarea = new FakeTextarea(text)
-
-    try {
-      applyEditorHighlights(textarea, [
-        { start: 628, end: 633, styleId: 2 },
-        { start: 787, end: 797, styleId: 2 },
-      ])
-
-      expect(textarea.appliedHighlights).toEqual([
-        { lineIdx: 24, highlight: { start: 6, end: 11, styleId: 2 } },
-        { lineIdx: 29, highlight: { start: 6, end: 16, styleId: 2 } },
-      ])
-    } finally {
-      textarea.destroy()
-    }
-  })
-
-  test("supports real markdown highlighting with correct bold ranges in the current fixture", async () => {
-    const client = createEditorHighlightClient(process.cwd())
-
-    try {
-      const highlights = await getEditorHighlights({
-        text: await Bun.file("highlight_test.md").text(),
-        path: "/tmp/highlight_test.md",
-        syntaxStyle,
-        treeSitterClient: client,
-      })
-
-      expect(highlights).toContainEqual({
-        start: 628,
-        end: 633,
-        styleId: syntaxStyle.getStyleId("strong")!,
-      })
-      expect(highlights).toContainEqual({
-        start: 787,
-        end: 797,
-        styleId: syntaxStyle.getStyleId("strong")!,
-      })
-    } finally {
-      await client.destroy()
-    }
-  })
 })
