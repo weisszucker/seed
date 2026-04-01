@@ -39,14 +39,24 @@ def main():
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--cols", required=True, type=int)
     parser.add_argument("--rows", required=True, type=int)
-    parser.add_argument("--entrypoint", required=True)
+    parser.add_argument("--entrypoint")
+    parser.add_argument("--argv-json")
     args = parser.parse_args()
+
+    argv = None
+    if args.argv_json:
+        argv = json.loads(args.argv_json)
+    elif args.entrypoint:
+        argv = ["bun", "run", args.entrypoint]
+
+    if not argv:
+        raise ValueError("Either --entrypoint or --argv-json is required")
 
     master_fd, slave_fd = pty.openpty()
     set_window_size(slave_fd, args.rows, args.cols)
 
     child = subprocess.Popen(
-        ["bun", "run", args.entrypoint],
+        argv,
         cwd=args.cwd,
         env=os.environ.copy(),
         stdin=slave_fd,

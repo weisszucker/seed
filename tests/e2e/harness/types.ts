@@ -44,3 +44,14 @@ export type DirectPtySessionOptions = {
   env?: Record<string, string | undefined>
 }
 
+export type TmuxSessionOptions = {
+  cwd: string
+  eventLogPath: string
+  configPath?: string
+  socketPath?: string
+  sessionName?: string
+  outerTerm?: "xterm-256color"
+  cols?: number
+  rows?: number
+  env?: Record<string, string | undefined>
+}

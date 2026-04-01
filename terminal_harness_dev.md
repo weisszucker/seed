@@ -853,13 +853,13 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 3: Tmux Transport
 
-- [ ] Implement `TmuxSession`.
-- [ ] Use a unique tmux socket per test process or test file.
-- [ ] Apply explicit tmux test settings.
-- [ ] Ensure tmux teardown runs even after failures.
-- [ ] Capture tmux pane output in failure diagnostics.
-- [ ] Add focused keyboard tmux coverage.
-- [ ] Add focused mouse tmux coverage.
+- [x] Implement `TmuxSession`.
+- [x] Use a unique tmux socket per test process or test file.
+- [x] Apply explicit tmux test settings.
+- [x] Ensure tmux teardown runs even after failures.
+- [x] Capture tmux pane output in failure diagnostics.
+- [x] Add focused keyboard tmux coverage.
+- [x] Add focused mouse tmux coverage.
 
 ### Diagnostics And Hardening
 
