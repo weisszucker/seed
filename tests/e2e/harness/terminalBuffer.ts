@@ -30,6 +30,49 @@ export function findLine(screen: ScreenState, pattern: RegExp): string | null {
   return null
 }
 
+export function findTextCells(screen: ScreenState, text: string): Array<{ x: number; y: number }> {
+  if (!text) {
+    throw new Error("Text lookup requires a non-empty string")
+  }
+
+  const matches: Array<{ x: number; y: number }> = []
+
+  for (let rowIndex = 0; rowIndex < screen.lines.length; rowIndex += 1) {
+    const line = screen.lines[rowIndex] ?? ""
+    let searchOffset = 0
+
+    while (searchOffset <= line.length) {
+      const matchIndex = line.indexOf(text, searchOffset)
+      if (matchIndex === -1) {
+        break
+      }
+
+      matches.push({
+        x: matchIndex + 1,
+        y: rowIndex + 1,
+      })
+
+      searchOffset = matchIndex + 1
+    }
+  }
+
+  return matches
+}
+
+export function findUniqueTextCell(screen: ScreenState, text: string): { x: number; y: number } {
+  const matches = findTextCells(screen, text)
+
+  if (matches.length === 0) {
+    throw new Error(`Text "${text}" is not visible on the current screen`)
+  }
+
+  if (matches.length > 1) {
+    throw new Error(`Text "${text}" is ambiguous on the current screen`)
+  }
+
+  return matches[0]!
+}
+
 export class TerminalBuffer {
   private readonly cells: string[][]
 

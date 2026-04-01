@@ -842,14 +842,14 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 2: Mouse Coverage
 
-- [ ] Add xterm SGR mouse encoding helpers.
-- [ ] Add `clickCell(x, y)` support.
-- [ ] Add higher-level helpers such as `clickText("Save")` as optional wrappers over `clickCell(x, y)`.
-- [ ] Add mouse tests for clicking editor to return focus.
-- [ ] Add mouse tests for clicking sidebar directories to toggle expansion.
-- [ ] Add mouse tests for clicking sidebar files to open them.
-- [ ] Add mouse tests for clicking modal actions.
-- [ ] Run mouse coverage only on `xterm-256color` until tmux transport is ready.
+- [x] Add xterm SGR mouse encoding helpers.
+- [x] Add `clickCell(x, y)` support.
+- [x] Add higher-level helpers such as `clickText("Save")` as optional wrappers over `clickCell(x, y)`.
+- [x] Add mouse tests for clicking editor to return focus.
+- [x] Add mouse tests for clicking sidebar directories to toggle expansion.
+- [x] Add mouse tests for clicking sidebar files to open them.
+- [x] Add mouse tests for clicking modal actions.
+- [x] Run mouse coverage only on `xterm-256color` until tmux transport is ready.
 
 ### Phase 3: Tmux Transport
 
