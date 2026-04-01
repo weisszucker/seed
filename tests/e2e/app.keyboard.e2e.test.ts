@@ -99,6 +99,79 @@ describe("keyboard e2e", () => {
       await session.waitForHook((event) => event.type === "app_exit", 10000)
     })
 
+    test(`routes vim-style navigation keys to the sidebar when it is focused in ${term}`, { timeout: 20000 }, async () => {
+      const session = await startSession(term, {
+        "a.md": "# a\n",
+        "b.md": "# b\n",
+      })
+
+      await session.waitForOutput((screen) => findText(screen, "a.md") && findText(screen, "b.md"), 10000)
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("l"))
+      const sidebarFocused = await session.waitForHook(
+        (event) => event.type === "focus_changed" && event.pane === "sidebar",
+        10000,
+      )
+
+      await session.write(press("j"))
+      const afterMove = await session.waitForHook(
+        (event) => event.type === "runtime_idle" && event.seq > sidebarFocused.seq,
+        10000,
+      )
+
+      expect(
+        session.getRecentHookEvents(50).some(
+          (event) => event.type === "document_changed" && event.seq > sidebarFocused.seq && event.seq <= afterMove.seq,
+        ),
+      ).toBeFalse()
+
+      await session.write(press("enter"))
+      await session.waitForOutput((screen) => findText(screen, "b.md") && findText(screen, "# b"), 10000)
+      expect(findText(session.getScreen(), "# b")).toBeTrue()
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
+    })
+
+    test(`returns typing to the editor after leaving sidebar focus in ${term}`, { timeout: 20000 }, async () => {
+      const session = await startSession(term, {
+        "note.md": "# note\n",
+      })
+
+      await session.waitForOutput((screen) => findText(screen, "note.md"), 10000)
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("l"))
+      await session.waitForHook(
+        (event) => event.type === "focus_changed" && event.pane === "sidebar",
+        10000,
+      )
+
+      await session.write(press("escape"))
+      const editorFocused = await session.waitForHook(
+        (event) => event.type === "focus_changed" && event.pane === "editor",
+        10000,
+      )
+
+      await session.write(press("j"))
+      await session.waitForHook(
+        (event) => event.type === "runtime_idle" && event.seq > editorFocused.seq,
+        10000,
+      )
+      await session.waitForOutput((screen) => findText(screen, "j"), 10000)
+
+      expect(
+        session.getRecentHookEvents(50).some(
+          (event) => event.type === "document_changed" && event.seq > editorFocused.seq && event.isDirty,
+        ),
+      ).toBeTrue()
+      expect(findText(session.getScreen(), "j")).toBeTrue()
+
+      await quitWithoutSaving(session)
+    })
+
     test(`cancels the unsaved-quit prompt with escape in ${term}`, { timeout: 20000 }, async () => {
       const session = await startSession(term, {
         "note.md": "# note\n",
@@ -127,4 +200,3 @@ describe("keyboard e2e", () => {
     })
   }
 })
-

@@ -829,7 +829,7 @@ The design is complete when the implementation can demonstrate all of the follow
 - [x] Add tests for leader mode and sidebar toggle.
 - [x] Add tests for sidebar keyboard navigation.
 - [x] Add tests for prompt cancel and prompt confirm flows.
-- [ ] Add tests for focus-sensitive behavior using the chosen assertion model.
+- [x] Add tests for focus-sensitive behavior using the chosen assertion model.
 
 ### Phase 2: Prompt And File Flow Coverage
 
