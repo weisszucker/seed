@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seed Cloud Mode"
+  short_description: "Broad overview for Seed cloud tasks"
+  default_prompt: "Use $seed-cloud-mode to understand Seed cloud-mode behavior before changing auth, bootstrap, startup sync, exit sync, or retry flows."
