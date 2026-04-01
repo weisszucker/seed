@@ -5,6 +5,7 @@ import { basename } from "node:path"
 
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
+import type { E2eHookSink } from "../e2e/hooks"
 import { EditorPane } from "./components/EditorPane"
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal"
 import { MovePathModal } from "./components/MovePathModal"
@@ -34,6 +35,7 @@ function formatTitle(path: string | null): string {
 type AppProps = {
   cwd?: string
   effectRunner?: RuntimeEffectRunner
+  e2eHookSink?: E2eHookSink | null
 }
 
 const commandMap: Record<CommandName, AppEvent> = {
@@ -210,12 +212,12 @@ type UndoableRenderable = {
   undo: () => boolean
 }
 
-export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
+export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: AppProps) {
   const renderer = useRenderer()
   const runtimeRef = useRef<SeedRuntime | null>(null)
 
   if (!runtimeRef.current) {
-    runtimeRef.current = new SeedRuntime(cwd, renderer, effectRunner)
+    runtimeRef.current = new SeedRuntime(cwd, renderer, effectRunner, e2eHookSink)
   }
 
   const runtime = runtimeRef.current
@@ -266,6 +268,8 @@ export function App({ cwd = process.cwd(), effectRunner }: AppProps) {
       if (leaderTimeoutRef.current) {
         clearTimeout(leaderTimeoutRef.current)
       }
+
+      runtime.emitAppExit()
     }
   }, [])
 
