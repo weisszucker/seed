@@ -9,6 +9,7 @@ type Listener = (state: EditorState) => void
 export type RuntimeEffectRunner = typeof runEffect
 
 type StartupReadinessState = {
+  appStartedReceived: boolean
   configReady: boolean
   fileTreeReady: boolean
   initialRenderCompleteEmitted: boolean
@@ -36,7 +37,10 @@ export class SeedRuntime {
 
   private effectSeq = 0
 
+  private appExitEmitted = false
+
   private readonly startupReadiness: StartupReadinessState = {
+    appStartedReceived: false,
     configReady: false,
     fileTreeReady: false,
     initialRenderCompleteEmitted: false,
@@ -60,6 +64,11 @@ export class SeedRuntime {
   }
 
   emitAppExit(): void {
+    if (this.appExitEmitted) {
+      return
+    }
+
+    this.appExitEmitted = true
     this.emitHook({ type: "app_exit", seq: this.publishSeq })
   }
 
@@ -150,6 +159,10 @@ export class SeedRuntime {
   }
 
   private updateStartupReadiness(event: AppEvent, seq: number): void {
+    if (event.type === "APP_STARTED") {
+      this.startupReadiness.appStartedReceived = true
+    }
+
     if (event.type === "CONFIG_LOADED" || event.type === "CONFIG_LOAD_FAILED") {
       this.startupReadiness.configReady = true
     }
@@ -160,6 +173,7 @@ export class SeedRuntime {
 
     if (
       !this.startupReadiness.initialRenderCompleteEmitted &&
+      this.startupReadiness.appStartedReceived &&
       this.startupReadiness.configReady &&
       this.startupReadiness.fileTreeReady
     ) {
@@ -189,7 +203,8 @@ export class SeedRuntime {
           this.publish(nextEvent, previousState)
         }
 
-        if (nextEvent.type === "APP_STARTED" && result.state === previousState) {
+        if (nextEvent.type === "APP_STARTED") {
+          this.startupReadiness.appStartedReceived = true
           this.emitHook({ type: "app_started", seq: this.publishSeq })
         }
 
@@ -212,6 +227,10 @@ export class SeedRuntime {
             effectType: effect.type,
             queuedEventTypes: events.map((event) => event.type),
           })
+
+          if (effect.type === "EXIT_APP") {
+            this.emitAppExit()
+          }
 
           this.queue.push(...events)
         }

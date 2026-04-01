@@ -110,6 +110,38 @@ describe("SeedRuntime E2E hooks", () => {
     expect(runtimeIdle?.seq).toBe(2)
   })
 
+  test("does not emit initial_render_complete before APP_STARTED even if earlier state publishes occur", async () => {
+    const { events, sink } = createMemoryE2eHookSink()
+    const runtime = new SeedRuntime(
+      "/tmp/work",
+      {} as never,
+      async (effect) => {
+        switch (effect.type) {
+          case "LOAD_CONFIG":
+            return [{ type: "CONFIG_LOADED", keybindings: {} }]
+
+          case "LOAD_FILE_TREE":
+            return [{ type: "FILE_TREE_LOADED", nodes: [] }]
+
+          default:
+            return []
+        }
+      },
+      sink,
+    )
+
+    runtime.dispatch({ type: "EDITOR_TEXT_CHANGED", text: "prefill" })
+    await waitForEvent(events, (event) => event.type === "runtime_idle" && event.seq === 1)
+
+    expect(events.some((event) => event.type === "initial_render_complete")).toBeFalse()
+
+    runtime.dispatch({ type: "APP_STARTED" })
+    await waitForEvent(events, (event) => event.type === "initial_render_complete")
+
+    const initialRenderComplete = events.find((event) => event.type === "initial_render_complete")
+    expect(initialRenderComplete?.seq).toBe(3)
+  })
+
   test("emits runtime_idle after save-then-continue pending action settles", async () => {
     const { events, sink } = createMemoryE2eHookSink()
     const runtime = new SeedRuntime(
@@ -161,5 +193,19 @@ describe("SeedRuntime E2E hooks", () => {
       "FILE_SAVED",
     ])
   })
-})
 
+  test("emits app_exit for graceful quit effects", async () => {
+    const { events, sink } = createMemoryE2eHookSink()
+    const runtime = new SeedRuntime(
+      "/tmp/work",
+      {} as never,
+      async () => [],
+      sink,
+    )
+
+    runtime.dispatch({ type: "REQUEST_QUIT" })
+    await waitForEvent(events, (event) => event.type === "app_exit")
+
+    expect(events.map((event) => event.type)).toContain("app_exit")
+  })
+})

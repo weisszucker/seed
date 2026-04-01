@@ -131,6 +131,7 @@ Implementations:
 Recommended implementation:
 
 - Use a PTY library such as `node-pty`
+- For the initial Bun-based harness, a small helper process that owns the PTY is also acceptable when native PTY bindings are not yet in place
 - Run Seed through the real CLI entrypoint
 - Default command:
 
@@ -143,6 +144,12 @@ Reason:
 - plain `spawn(..., stdio: "pipe")` is not enough for terminal interaction
 - many terminal UI behaviors only appear correctly under a PTY
 - running `src/main.ts` keeps E2E coverage aligned with the actual `seed` command path while still being repo-local and script-free
+
+Current phase-1 implementation note:
+
+- the repo currently uses a small Python stdlib PTY helper process for `DirectPtySession`
+- the Bun-side harness still owns fixtures, waits, parsing, and assertions
+- this keeps the PTY transport isolated without introducing a native dependency yet
 
 ### 3. Screen Model
 
@@ -665,9 +672,9 @@ Cons:
 - depends on Bun working cleanly with native PTY bindings
 - failures may be harder to localize when Bun, PTY bindings, tmux, and the app are stacked together
 
-#### Option B: Bun Tests With a Small Node PTY Helper
+#### Option B: Bun Tests With a Small PTY Helper
 
-Keep the main test suite in Bun, but move PTY ownership into a small Node helper process that exposes a narrow transport API.
+Keep the main test suite in Bun, but move PTY ownership into a small helper process that exposes a narrow transport API.
 
 Pros:
 
@@ -678,7 +685,7 @@ Pros:
 Cons:
 
 - adds helper-process complexity
-- requires a simple protocol between the Bun test harness and the Node transport
+- requires a simple protocol between the Bun test harness and the helper transport
 
 #### Option C: Full Node-Based E2E Runner
 
@@ -785,17 +792,17 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 1: Test Infrastructure
 
-- [ ] Add `tests/e2e/` and `tests/e2e/harness/`.
-- [ ] Add the shared `TerminalSession` interface.
-- [ ] Implement `DirectPtySession`.
-- [ ] Add terminal transcript capture.
-- [ ] Add a parsed terminal buffer / screen model.
-- [ ] Add reusable screen query helpers such as `findText`, `findLine`, and `dumpVisibleText`.
-- [ ] Add keyboard input encoding helpers for printable text, `Enter`, `Escape`, `Tab`, `Backspace`, arrows, and leader-key flows.
-- [ ] Add generic polling / wait helpers with timeouts.
-- [ ] Add isolated workspace fixture helpers.
-- [ ] Add isolated config fixture helpers using `SEED_CONFIG_PATH`.
-- [ ] Ensure E2E tests launch through `bun run src/main.ts`.
+- [x] Add `tests/e2e/` and `tests/e2e/harness/`.
+- [x] Add the shared `TerminalSession` interface.
+- [x] Implement `DirectPtySession`.
+- [x] Add terminal transcript capture.
+- [x] Add a parsed terminal buffer / screen model.
+- [x] Add reusable screen query helpers such as `findText`, `findLine`, and `dumpVisibleText`.
+- [x] Add keyboard input encoding helpers for printable text, `Enter`, `Escape`, `Tab`, `Backspace`, arrows, and leader-key flows.
+- [x] Add generic polling / wait helpers with timeouts.
+- [x] Add isolated workspace fixture helpers.
+- [x] Add isolated config fixture helpers using `SEED_CONFIG_PATH`.
+- [x] Ensure E2E tests launch through `bun run src/main.ts`.
 
 ### Phase 1: App Instrumentation
 
@@ -816,12 +823,12 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 1: First Test Coverage
 
-- [ ] Add startup smoke coverage for direct PTY.
+- [x] Add startup smoke coverage for direct PTY.
 - [ ] Add keyboard E2E coverage for `vt100`.
-- [ ] Add keyboard E2E coverage for `xterm-256color`.
-- [ ] Add tests for leader mode and sidebar toggle.
+- [x] Add keyboard E2E coverage for `xterm-256color`.
+- [x] Add tests for leader mode and sidebar toggle.
 - [ ] Add tests for sidebar keyboard navigation.
-- [ ] Add tests for prompt cancel and prompt confirm flows.
+- [x] Add tests for prompt cancel and prompt confirm flows.
 - [ ] Add tests for focus-sensitive behavior using the chosen assertion model.
 
 ### Phase 2: Prompt And File Flow Coverage
