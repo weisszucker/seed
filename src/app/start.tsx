@@ -1,6 +1,8 @@
 import { CliRenderEvents, createCliRenderer, type CliRenderer } from "@opentui/core"
 import { createRoot, type Root } from "@opentui/react"
 
+import type { E2eHookSink } from "../e2e/hooks"
+import { createE2eHookSinkFromEnv } from "../e2e/hooks"
 import type { RuntimeEffectRunner } from "./runtime"
 import { App } from "../ui/App"
 
@@ -127,18 +129,33 @@ export function createSeedShutdownController({
 export type StartSeedOptions = {
   cwd?: string
   effectRunner?: RuntimeEffectRunner
+  e2eHookSink?: E2eHookSink | null
 }
 
 export async function startSeedApp(options: StartSeedOptions = {}): Promise<void> {
   let renderer: CliRenderer | null = null
   let root: Root | null = null
   let shutdownController: { cleanup: () => void; dispose: () => void } | null = null
+  const e2eHookSink = options.e2eHookSink === undefined ? createE2eHookSinkFromEnv() : options.e2eHookSink
+  let e2eHookSinkClosed = false
+
+  function closeE2eHookSink(): void {
+    if (e2eHookSinkClosed) {
+      return
+    }
+
+    e2eHookSinkClosed = true
+    void e2eHookSink?.close?.()
+  }
 
   try {
     renderer = await createCliRenderer({
       exitOnCtrlC: false,
       autoFocus: true,
       useMouse: true,
+    })
+    renderer.once(CliRenderEvents.DESTROY, () => {
+      closeE2eHookSink()
     })
 
     shutdownController = createSeedShutdownController({
@@ -148,9 +165,10 @@ export async function startSeedApp(options: StartSeedOptions = {}): Promise<void
 
     const cwd = options.cwd ?? process.cwd()
     root = createRoot(renderer)
-    root.render(<App cwd={cwd} effectRunner={options.effectRunner} />)
+    root.render(<App cwd={cwd} effectRunner={options.effectRunner} e2eHookSink={e2eHookSink} />)
   } catch (error) {
     shutdownController?.cleanup()
+    closeE2eHookSink()
 
     if (!shutdownController && renderer && !renderer.isDestroyed) {
       try {

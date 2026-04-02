@@ -61,4 +61,6 @@ The default leader key is `ctrl-l`.
 `<leader> l` for shifting focus between the editor and the sidebar.
 `<leader> k` for showing shortcut help.
 
-The leader key and command keys can be controlled by a config file "setting.json".
+The leader key and command keys can be controlled by the config file `~/.seed/setting.json`.
+
+For tests or isolated runs, set `SEED_CONFIG_PATH` to load config from a different file path.
