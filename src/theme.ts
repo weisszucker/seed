@@ -22,6 +22,8 @@ export const uiColors = {
   textMuted: "#9ca2ab",
   textSubtle: "#bcc2ca",
   editorTitle: "#acc8de",
+  editorSelectionBackground: "#5a4528",
+  editorSelectionText: "#f5eadc",
   sidebarTitle: "#9dbb9d",
   treeDefault: "#c3c9d2",
   treeDisabled: "#7c818a",

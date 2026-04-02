@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
-import { type InputRenderable, type KeyEvent, type SyntaxStyle, type TextareaRenderable, type TreeSitterClient } from "@opentui/core"
+import {
+  type InputRenderable,
+  type KeyEvent,
+  type Selection,
+  type SyntaxStyle,
+  type TextareaRenderable,
+  type TreeSitterClient,
+} from "@opentui/core"
 import { basename } from "node:path"
 
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
@@ -285,6 +292,23 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
 
     textareaRef.current.focus()
   }, [state.document.path, state.focusedPane, state.modal])
+
+  useEffect(() => {
+    function handleSelection(selection: Selection): void {
+      const text = selection.getSelectedText()
+      if (!text) {
+        return
+      }
+
+      runtime.dispatch({ type: "REQUEST_COPY_TEXT", text })
+    }
+
+    renderer.on("selection", handleSelection)
+
+    return () => {
+      renderer.off("selection", handleSelection)
+    }
+  }, [renderer, runtime])
 
   function clearLeaderTimeout(): void {
     if (!leaderTimeoutRef.current) {

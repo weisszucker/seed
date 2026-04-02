@@ -121,6 +121,8 @@ export function EditorPane({
           backgroundColor={uiColors.panelBackground}
           focusedBackgroundColor={uiColors.panelBackground}
           textColor={uiColors.textPrimary}
+          selectionBg={uiColors.editorSelectionBackground}
+          selectionFg={uiColors.editorSelectionText}
         />
       </box>
     </box>

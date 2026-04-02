@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { uiLayout } from "../../src/theme"
 
-import { clickCell, clickText, mouseDownLeft } from "./harness/mouse"
+import { clickCell, clickText, mouseDownLeft, mouseDragLeft, mouseUpLeft } from "./harness/mouse"
 import { press, typeText } from "./harness/input"
 import { DirectPtySession } from "./harness/directPtySession"
 import { createWorkspaceFixture, type WorkspaceFixture } from "./harness/fixtures"
@@ -146,6 +146,38 @@ describe("mouse e2e", () => {
       await session.waitForOutput((screen) => findText(screen, "Unsaved changes"), 10000)
       const dontSaveCell = findDontSaveCell(session.getScreen())
       await session.write(mouseDownLeft(dontSaveCell.x, dontSaveCell.y))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
+    })
+  }, 20000)
+
+  test("mouse selection copies text to the clipboard", async () => {
+    await withLatestSessionDiagnostics(sessionStack, async () => {
+      const session = await startSession({
+        "note.md": "copy_target\n",
+      })
+
+      await session.waitForOutput((screen) => findText(screen, "note.md"), 10000)
+
+      const openSeq = session.getLatestHookSeq()
+      await session.write(clickText(session.getScreen(), "note.md"))
+      await waitForRuntimeIdle(session, openSeq)
+      await session.waitForOutput((screen) => findText(screen, "copy_target"), 10000)
+
+      const selectedText = "copy_target"
+      const start = findUniqueTextCell(session.getScreen(), selectedText)
+      const endX = start.x + selectedText.length
+
+      const copySeq = session.getLatestHookSeq()
+      await session.write(mouseDownLeft(start.x, start.y))
+      await session.write(mouseDragLeft(endX, start.y))
+      await session.write(mouseUpLeft(endX, start.y))
+      await waitForRuntimeIdle(session, copySeq)
+      await session.waitForOutput((screen) => findText(screen, "Copied selection"), 10000)
+
+      expect(session.getTranscript()).toContain(Buffer.from(selectedText, "utf8").toString("base64"))
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
       await session.waitForHook((event) => event.type === "app_exit", 10000)
     })
   }, 20000)

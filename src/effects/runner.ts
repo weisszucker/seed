@@ -1,10 +1,19 @@
 import type { CliRenderer } from "@opentui/core"
 
 import type { AppEffect, AppEvent } from "../core/types"
+import { copyTextToClipboard } from "./clipboard"
 import { loadUserConfig } from "./config"
 import { createPath, deletePath, loadFileTree, movePath, readTextFile, writeTextFile } from "./fs"
 
-export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promise<AppEvent[]> {
+type EffectRunnerDependencies = {
+  copyTextToClipboard?: typeof copyTextToClipboard
+}
+
+export async function runEffect(
+  effect: AppEffect,
+  renderer: CliRenderer,
+  deps: EffectRunnerDependencies = {},
+): Promise<AppEvent[]> {
   try {
     switch (effect.type) {
       case "LOAD_CONFIG": {
@@ -25,6 +34,20 @@ export async function runEffect(effect: AppEffect, renderer: CliRenderer): Promi
       case "SAVE_FILE": {
         await writeTextFile(effect.path, effect.text)
         return [{ type: "FILE_SAVED", path: effect.path }]
+      }
+
+      case "COPY_TO_CLIPBOARD": {
+        const didCopy = await (deps.copyTextToClipboard ?? copyTextToClipboard)(effect.text, renderer)
+        if (didCopy) {
+          return [{ type: "CLIPBOARD_COPY_SUCCEEDED" }]
+        }
+
+        return [
+          {
+            type: "CLIPBOARD_COPY_FAILED",
+            message: "Clipboard copy is not supported in this terminal",
+          },
+        ]
       }
 
       case "CREATE_PATH": {

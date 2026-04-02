@@ -12,6 +12,73 @@ type VisibleSidebarNode = {
   parentPath: string | null
 }
 
+function withStatus(state: EditorState, statusMessage: string, transient = false): EditorState {
+  return {
+    ...state,
+    statusMessage,
+    statusMessageTransient: transient,
+  }
+}
+
+function isUserInputEvent(event: AppEvent): boolean {
+  switch (event.type) {
+    case "TOGGLE_SIDEBAR":
+    case "TOGGLE_FOCUS_PANE":
+    case "FOCUS_EDITOR":
+    case "FOCUS_SIDEBAR":
+    case "TOGGLE_DIRECTORY":
+    case "SIDEBAR_SELECT_PREV":
+    case "SIDEBAR_SELECT_NEXT":
+    case "SIDEBAR_ACTIVATE_SELECTION":
+    case "SIDEBAR_EXPAND_SELECTION":
+    case "SIDEBAR_COLLAPSE_SELECTION":
+    case "SIDEBAR_REQUEST_DELETE_SELECTION":
+    case "REQUEST_OPEN_FILE":
+    case "REQUEST_NEW_FILE":
+    case "REQUEST_QUIT":
+    case "REQUEST_SAVE":
+    case "REQUEST_SAVE_AS":
+    case "REQUEST_COPY_TEXT":
+    case "REQUEST_CREATE_PATH":
+    case "REQUEST_MOVE_PATH":
+    case "REQUEST_SHOW_SHORTCUT_HELP":
+    case "SAVE_AS_PATH_UPDATED":
+    case "SAVE_AS_SUBMITTED":
+    case "CREATE_PATH_INPUT_UPDATED":
+    case "CREATE_PATH_SUBMITTED":
+    case "MOVE_SOURCE_PATH_UPDATED":
+    case "MOVE_DESTINATION_PATH_UPDATED":
+    case "MOVE_PATH_FOCUS_CHANGED":
+    case "MOVE_PATH_SUBMITTED":
+    case "PROMPT_CHOOSE_SAVE":
+    case "PROMPT_CHOOSE_DONT_SAVE":
+    case "DELETE_CONFIRM_ACCEPT":
+    case "PROMPT_SELECT_PREV":
+    case "PROMPT_SELECT_NEXT":
+    case "PROMPT_CANCEL":
+    case "EDITOR_TEXT_CHANGED":
+      return true
+
+    default:
+      return false
+  }
+}
+
+function prepareStateForEvent(state: EditorState, event: AppEvent): EditorState {
+  if (!state.statusMessageTransient) {
+    return state
+  }
+
+  if (isUserInputEvent(event)) {
+    return withStatus(state, "Ready")
+  }
+
+  return {
+    ...state,
+    statusMessageTransient: false,
+  }
+}
+
 function withDocumentText(state: EditorState, text: string): EditorState {
   const isDirty = text !== state.document.savedText
   return {
@@ -290,6 +357,8 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "PATH_MOVE_FAILED",
     "PATH_DELETED",
     "PATH_DELETE_FAILED",
+    "CLIPBOARD_COPY_SUCCEEDED",
+    "CLIPBOARD_COPY_FAILED",
     "CONFIG_LOADED",
     "CONFIG_LOAD_FAILED",
     "FILE_TREE_LOADED",
@@ -425,6 +494,8 @@ function stripTrailingSeparators(inputPath: string): string {
 }
 
 export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
+  state = prepareStateForEvent(state, event)
+
   if (isBlockedByModal(state, event)) {
     return { state, effects: [] }
   }
@@ -580,6 +651,17 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         state: withDocumentText(state, event.text),
         effects: [],
       }
+
+    case "REQUEST_COPY_TEXT": {
+      if (!event.text) {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: withStatus(state, "Copying selection", true),
+        effects: [{ type: "COPY_TO_CLIPBOARD", text: event.text }],
+      }
+    }
 
     case "REQUEST_OPEN_FILE":
       return requestRiskyAction(state, { type: "open_file", path: event.path })
@@ -1223,6 +1305,18 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           ...state,
           statusMessage: event.message,
         },
+        effects: [],
+      }
+
+    case "CLIPBOARD_COPY_SUCCEEDED":
+      return {
+        state: withStatus(state, "Copied selection", true),
+        effects: [],
+      }
+
+    case "CLIPBOARD_COPY_FAILED":
+      return {
+        state: withStatus(state, event.message, true),
         effects: [],
       }
 

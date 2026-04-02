@@ -145,6 +145,45 @@ describe("unsaved-change prompt gating", () => {
     expect(result.effects).toEqual([])
   })
 
+  test("copy request emits a clipboard effect", () => {
+    const state = createInitialState("/tmp")
+    const result = reduceEvent(state, {
+      type: "REQUEST_COPY_TEXT",
+      text: "copy_target",
+    })
+
+    expect(result.state.statusMessage).toBe("Copying selection")
+    expect(result.effects).toEqual([
+      {
+        type: "COPY_TO_CLIPBOARD",
+        text: "copy_target",
+      },
+    ])
+  })
+
+  test("clipboard result updates the status message", () => {
+    const state = createInitialState("/tmp")
+    const success = reduceEvent(state, { type: "CLIPBOARD_COPY_SUCCEEDED" })
+    const failure = reduceEvent(state, {
+      type: "CLIPBOARD_COPY_FAILED",
+      message: "Clipboard copy is not supported in this terminal",
+    })
+
+    expect(success.state.statusMessage).toBe("Copied selection")
+    expect(failure.state.statusMessage).toBe("Clipboard copy is not supported in this terminal")
+  })
+
+  test("transient clipboard status clears on the next user input", () => {
+    const state = reduceEvent(createInitialState("/tmp"), {
+      type: "CLIPBOARD_COPY_SUCCEEDED",
+    }).state
+
+    const result = reduceEvent(state, { type: "FOCUS_EDITOR" })
+
+    expect(result.state.statusMessage).toBe("Ready")
+    expect(result.state.statusMessageTransient).toBeFalse()
+  })
+
   test("delete confirmation submits delete effect", () => {
     const initial = reduceEvent(createInitialState("/tmp/work"), {
       type: "FILE_TREE_LOADED",

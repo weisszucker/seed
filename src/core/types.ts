@@ -75,6 +75,7 @@ export type EditorState = {
   modal: ModalState | null
   postSaveAction: PendingAction | null
   statusMessage: string
+  statusMessageTransient: boolean
 }
 
 export type AppEffect =
@@ -82,6 +83,7 @@ export type AppEffect =
   | { type: "LOAD_FILE_TREE"; rootPath: string }
   | { type: "LOAD_FILE"; path: string }
   | { type: "SAVE_FILE"; path: string; text: string }
+  | { type: "COPY_TO_CLIPBOARD"; text: string }
   | { type: "CREATE_PATH"; rootPath: string; path: string; nodeType: "file" | "directory" }
   | { type: "MOVE_PATH"; rootPath: string; sourcePath: string; destinationPath: string }
   | { type: "DELETE_PATH"; path: string; nodeType: "file" | "directory" }
@@ -110,6 +112,7 @@ export type AppEvent =
   | { type: "REQUEST_QUIT" }
   | { type: "REQUEST_SAVE" }
   | { type: "REQUEST_SAVE_AS" }
+  | { type: "REQUEST_COPY_TEXT"; text: string }
   | { type: "REQUEST_CREATE_PATH" }
   | { type: "REQUEST_MOVE_PATH" }
   | { type: "REQUEST_SHOW_SHORTCUT_HELP" }
@@ -132,6 +135,8 @@ export type AppEvent =
   | { type: "FILE_LOAD_FAILED"; path: string; message: string }
   | { type: "FILE_SAVED"; path: string }
   | { type: "FILE_SAVE_FAILED"; message: string }
+  | { type: "CLIPBOARD_COPY_SUCCEEDED" }
+  | { type: "CLIPBOARD_COPY_FAILED"; message: string }
   | { type: "PATH_CREATED"; path: string; nodeType: "file" | "directory" }
   | { type: "PATH_CREATE_FAILED"; message: string }
   | { type: "PATH_MOVED"; sourcePath: string; destinationPath: string }
@@ -173,5 +178,6 @@ export function createInitialState(cwd: string): EditorState {
     modal: null,
     postSaveAction: null,
     statusMessage: "Ready",
+    statusMessageTransient: false,
   }
 }

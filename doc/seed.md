@@ -6,6 +6,8 @@ On the left it has the editor, on the right it has a sidebar. On the bottom ther
 
 It support mouse for basic operations, such as navigation, selection and interact with clickable elements.
 
+Selecting visible text with the mouse should copy it to the local clipboard on supported platforms, falling back to terminal OSC 52 clipboard access when available.
+
 Most operations should support keyboard, if it's not bound to the mouse.
 
 ## Editor
