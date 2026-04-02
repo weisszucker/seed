@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seed Terminal E2E"
+  short_description: "Reference guide for Seed terminal E2E"
+  default_prompt: "Use $seed-terminal-e2e to understand the current Seed terminal E2E harness, synchronization model, transports, diagnostics, and test coverage before changing harness code or adding terminal end-to-end tests."
