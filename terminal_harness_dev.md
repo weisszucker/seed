@@ -892,6 +892,20 @@ CI prerequisites:
 - the tmux job should run without sandbox restrictions that block tmux socket creation
 - the job should preserve enough terminal support for an outer `TERM=xterm-256color` client PTY
 
+## Refactor Summary
+
+The design started as a direct-PTY harness plan and ended with a two-transport test stack plus shared diagnostics.
+
+Main refactors:
+
+- synchronize tests with explicit E2E hook events such as `initial_render_complete`, `state_published`, and `runtime_idle` instead of startup-only or timing-based waits
+- split transport concerns behind a shared `TerminalSession` interface so direct PTY and real tmux coverage use the same test shape
+- move PTY ownership into a small Python stdlib helper instead of keeping low-level PTY management inside Bun
+- treat mouse support as cell-based transport first through `clickCell(x, y)`, with `clickText(...)` only as a convenience wrapper when the target text is unambiguous
+- keep assertions user-facing by default and push reducer-aware knowledge into hook waits and diagnostics instead of test expectations
+- add failure diagnostics at the session layer so every E2E test can report the final screen, transcript tail, hook history, workspace tree, and tmux pane output when relevant
+- package the finished harness behind `test:e2e`, `test:e2e:direct`, and `test:e2e:tmux` so local runs and future CI wiring use the same entrypoints
+
 ## Recommendation
 
 Build the harness around direct PTY control first, then add tmux as a second transport.
