@@ -32,6 +32,7 @@ export type TerminalSession = {
   getRecentHookEvents(limit?: number): E2eHookEvent[]
   getScreen(): ScreenState
   getTranscript(): string
+  collectFailureDiagnostics(): Promise<string>
 }
 
 export type DirectPtySessionOptions = {

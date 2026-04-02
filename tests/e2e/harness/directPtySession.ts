@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import type { E2eHookEvent } from "../../../src/e2e/hooks"
+import { collectWorkspaceTree, formatDiagnosticsSection, formatTranscriptTail } from "./diagnostics"
 import { dumpVisibleText, TerminalBuffer } from "./terminalBuffer"
 import type { DirectPtySessionOptions, ScreenState, TerminalSession } from "./types"
 import { pollUntil } from "./waits"
@@ -14,7 +15,7 @@ const DEFAULT_ENTRYPOINT = resolve(import.meta.dir, "../../../src/main.ts")
 const PTY_HELPER = resolve(import.meta.dir, "./pty_helper.py")
 
 type HelperMessage =
-  | { type: "started" }
+  | { type: "started"; pid: number }
   | { type: "output"; data: string }
   | { type: "exit"; code: number | null }
   | { type: "error"; message: string }
@@ -43,6 +44,8 @@ export class DirectPtySession implements TerminalSession {
   private helperStdoutBuffer = ""
 
   private helperStarted = false
+
+  private managedPid: number | null = null
 
   constructor(private readonly options: DirectPtySessionOptions) {
     this.cols = options.cols ?? DEFAULT_COLS
@@ -117,13 +120,7 @@ export class DirectPtySession implements TerminalSession {
       })
 
       try {
-        await Promise.race([
-          this.exitPromise,
-          (async () => {
-            await Bun.sleep(1000)
-            throw new Error("Timed out waiting for PTY session to exit")
-          })(),
-        ])
+        await pollUntil(() => this.exitCode !== null, 1000)
       } catch {
         this.child.kill("SIGKILL")
         await this.exitPromise
@@ -178,6 +175,8 @@ export class DirectPtySession implements TerminalSession {
         resolveResize()
       })
     })
+
+    this.buffer.resize(cols, rows)
   }
 
   async waitForOutput(predicate: (screen: ScreenState) => boolean, timeoutMs = 5000): Promise<void> {
@@ -217,6 +216,24 @@ export class DirectPtySession implements TerminalSession {
 
   getTranscript(): string {
     return this.transcript
+  }
+
+  async collectFailureDiagnostics(): Promise<string> {
+    await this.refreshHookEvents()
+
+    const screen = this.getScreen()
+    const workspaceTree = await collectWorkspaceTree(this.options.cwd)
+
+    return [
+      formatDiagnosticsSection("Visible Screen", dumpVisibleText(screen)),
+      formatDiagnosticsSection("Transcript Tail", formatTranscriptTail(this.transcript)),
+      formatDiagnosticsSection("Recent Hook Events", JSON.stringify(this.getRecentHookEvents(50), null, 2)),
+      formatDiagnosticsSection("Workspace Tree", workspaceTree),
+    ].join("\n\n")
+  }
+
+  getManagedPid(): number | null {
+    return this.managedPid
   }
 
   async refreshHookEvents(): Promise<void> {
@@ -267,6 +284,7 @@ export class DirectPtySession implements TerminalSession {
       const message = JSON.parse(rawLine) as HelperMessage
       if (message.type === "started") {
         this.helperStarted = true
+        this.managedPid = message.pid
         continue
       }
 

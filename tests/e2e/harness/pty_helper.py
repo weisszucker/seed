@@ -78,7 +78,7 @@ def main():
     stdin_buffer = b""
     pty_open = True
 
-    send_message({"type": "started"})
+    send_message({"type": "started", "pid": child.pid})
 
     try:
         while True:

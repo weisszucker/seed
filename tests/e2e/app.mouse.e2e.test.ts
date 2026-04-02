@@ -6,6 +6,7 @@ import { press, typeText } from "./harness/input"
 import { DirectPtySession } from "./harness/directPtySession"
 import { createWorkspaceFixture, type WorkspaceFixture } from "./harness/fixtures"
 import { findText, findTextCells, findUniqueTextCell } from "./harness/terminalBuffer"
+import { withLatestSessionDiagnostics } from "./harness/testFailure"
 import type { ScreenState } from "./harness/types"
 
 const fixtureStack: WorkspaceFixture[] = []
@@ -66,96 +67,104 @@ function findDontSaveCell(screen: ScreenState): { x: number; y: number } {
 }
 
 describe("mouse e2e", () => {
-  test("clicks sidebar files to open them", { timeout: 20000 }, async () => {
-    const session = await startSession({
-      "a.md": "# a\n",
-      "b.md": "# b\n",
+  test("clicks sidebar files to open them", async () => {
+    await withLatestSessionDiagnostics(sessionStack, async () => {
+      const session = await startSession({
+        "a.md": "# a\n",
+        "b.md": "# b\n",
+      })
+
+      await session.waitForOutput((screen) => findText(screen, "a.md") && findText(screen, "b.md"), 10000)
+
+      const afterSeq = session.getLatestHookSeq()
+      await session.write(clickText(session.getScreen(), "b.md"))
+      await waitForRuntimeIdle(session, afterSeq)
+      await session.waitForOutput((screen) => findText(screen, "# b"), 10000)
+
+      expect(findText(session.getScreen(), "# b")).toBeTrue()
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
     })
+  }, 20000)
 
-    await session.waitForOutput((screen) => findText(screen, "a.md") && findText(screen, "b.md"), 10000)
+  test("clicks sidebar directories to toggle expansion", async () => {
+    await withLatestSessionDiagnostics(sessionStack, async () => {
+      const session = await startSession({
+        "docs/note.md": "# note\n",
+      })
 
-    const afterSeq = session.getLatestHookSeq()
-    await session.write(clickText(session.getScreen(), "b.md"))
-    await waitForRuntimeIdle(session, afterSeq)
-    await session.waitForOutput((screen) => findText(screen, "# b"), 10000)
+      await session.waitForOutput((screen) => findText(screen, "docs") && !findText(screen, "note.md"), 10000)
 
-    expect(findText(session.getScreen(), "# b")).toBeTrue()
+      await session.write(clickText(session.getScreen(), "docs"))
+      await session.waitForOutput((screen) => findText(screen, "note.md"), 10000)
 
-    await session.write(press("ctrl+l"))
-    await session.write(press("q"))
-    await session.waitForHook((event) => event.type === "app_exit", 10000)
-  })
+      await session.write(clickText(session.getScreen(), "docs"))
+      await session.waitForOutput((screen) => !findText(screen, "note.md"), 10000)
 
-  test("clicks sidebar directories to toggle expansion", { timeout: 20000 }, async () => {
-    const session = await startSession({
-      "docs/note.md": "# note\n",
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
     })
+  }, 20000)
 
-    await session.waitForOutput((screen) => findText(screen, "docs") && !findText(screen, "note.md"), 10000)
+  test("clicking the editor returns focus from the sidebar", async () => {
+    await withLatestSessionDiagnostics(sessionStack, async () => {
+      const session = await startSession({
+        "note.md": "# note\n",
+      })
 
-    await session.write(clickText(session.getScreen(), "docs"))
-    await session.waitForOutput((screen) => findText(screen, "note.md"), 10000)
+      await session.waitForOutput((screen) => findText(screen, "Start typing markdown..."), 10000)
 
-    await session.write(clickText(session.getScreen(), "docs"))
-    await session.waitForOutput((screen) => !findText(screen, "note.md"), 10000)
+      await session.write(press("ctrl+l"))
+      await session.write(press("l"))
+      await session.waitForHook(
+        (event) => event.type === "focus_changed" && event.pane === "sidebar",
+        10000,
+      )
 
-    await session.write(press("ctrl+l"))
-    await session.write(press("q"))
-    await session.waitForHook((event) => event.type === "app_exit", 10000)
-  })
+      const editorCell = findUniqueTextCell(session.getScreen(), "Start typing markdown...")
+      await session.write(clickCell(editorCell.x, editorCell.y))
+      const editorFocused = await session.waitForHook(
+        (event) => event.type === "focus_changed" && event.pane === "editor",
+        10000,
+      )
 
-  test("clicking the editor returns focus from the sidebar", { timeout: 20000 }, async () => {
-    const session = await startSession({
-      "note.md": "# note\n",
+      await session.write(typeText("j"))
+      await waitForRuntimeIdle(session, editorFocused.seq)
+      await session.waitForOutput((screen) => findText(screen, "j"), 10000)
+
+      expect(
+        session.getRecentHookEvents(50).some(
+          (event) => event.type === "document_changed" && event.seq > editorFocused.seq && event.isDirty,
+        ),
+      ).toBeTrue()
+
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
+      await session.waitForOutput((screen) => findText(screen, "Unsaved changes"), 10000)
+      const dontSaveCell = findDontSaveCell(session.getScreen())
+      await session.write(mouseDownLeft(dontSaveCell.x, dontSaveCell.y))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
     })
+  }, 20000)
 
-    await session.waitForOutput((screen) => findText(screen, "Start typing markdown..."), 10000)
+  test("clicks modal actions", async () => {
+    await withLatestSessionDiagnostics(sessionStack, async () => {
+      const session = await startSession({})
 
-    await session.write(press("ctrl+l"))
-    await session.write(press("l"))
-    await session.waitForHook(
-      (event) => event.type === "focus_changed" && event.pane === "sidebar",
-      10000,
-    )
+      const afterSeq = session.getLatestHookSeq()
+      await session.write(typeText("draft"))
+      await waitForRuntimeIdle(session, afterSeq)
 
-    const editorCell = findUniqueTextCell(session.getScreen(), "Start typing markdown...")
-    await session.write(clickCell(editorCell.x, editorCell.y))
-    const editorFocused = await session.waitForHook(
-      (event) => event.type === "focus_changed" && event.pane === "editor",
-      10000,
-    )
+      await session.write(press("ctrl+l"))
+      await session.write(press("q"))
+      await session.waitForOutput((screen) => findText(screen, "Unsaved changes"), 10000)
 
-    await session.write(typeText("j"))
-    await waitForRuntimeIdle(session, editorFocused.seq)
-    await session.waitForOutput((screen) => findText(screen, "j"), 10000)
-
-    expect(
-      session.getRecentHookEvents(50).some(
-        (event) => event.type === "document_changed" && event.seq > editorFocused.seq && event.isDirty,
-      ),
-    ).toBeTrue()
-
-    await session.write(press("ctrl+l"))
-    await session.write(press("q"))
-    await session.waitForOutput((screen) => findText(screen, "Unsaved changes"), 10000)
-    const dontSaveCell = findDontSaveCell(session.getScreen())
-    await session.write(mouseDownLeft(dontSaveCell.x, dontSaveCell.y))
-    await session.waitForHook((event) => event.type === "app_exit", 10000)
-  })
-
-  test("clicks modal actions", { timeout: 20000 }, async () => {
-    const session = await startSession({})
-
-    const afterSeq = session.getLatestHookSeq()
-    await session.write(typeText("draft"))
-    await waitForRuntimeIdle(session, afterSeq)
-
-    await session.write(press("ctrl+l"))
-    await session.write(press("q"))
-    await session.waitForOutput((screen) => findText(screen, "Unsaved changes"), 10000)
-
-    const dontSaveCell = findDontSaveCell(session.getScreen())
-    await session.write(mouseDownLeft(dontSaveCell.x, dontSaveCell.y))
-    await session.waitForHook((event) => event.type === "app_exit", 10000)
-  })
+      const dontSaveCell = findDontSaveCell(session.getScreen())
+      await session.write(mouseDownLeft(dontSaveCell.x, dontSaveCell.y))
+      await session.waitForHook((event) => event.type === "app_exit", 10000)
+    })
+  }, 20000)
 })

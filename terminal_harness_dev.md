@@ -781,14 +781,14 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Phase 0: Feasibility Decision
 
-- [ ] Verify the chosen PTY library works under Bun during normal execution.
-- [ ] Verify the chosen PTY library works under `bun test`.
-- [ ] Verify PTY resize works and Seed repaints correctly.
-- [ ] Verify raw keyboard input reaches Seed correctly through the PTY.
-- [ ] Verify Seed exits cleanly and does not leave orphan processes behind.
-- [ ] Verify a real tmux session can be started in the intended local and CI environments.
-- [ ] Verify the basic launch-input-assert-exit loop works through tmux as well as direct PTY.
-- [ ] Decide whether PTY ownership stays in Bun or moves to a small Node helper.
+- [x] Verify the chosen PTY helper works under Bun during normal execution.
+- [x] Verify the chosen PTY helper works under `bun test`.
+- [x] Verify PTY resize works and Seed repaints correctly.
+- [x] Verify raw keyboard input reaches Seed correctly through the PTY.
+- [x] Verify Seed exits cleanly and does not leave orphan processes behind.
+- [x] Verify a real tmux session can be started in the intended local environment and document CI prerequisites.
+- [x] Verify the basic launch-input-assert-exit loop works through tmux as well as direct PTY.
+- [x] Decide whether PTY ownership stays in Bun or moves to a small helper.
 
 ### Phase 1: Test Infrastructure
 
@@ -863,13 +863,13 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Diagnostics And Hardening
 
-- [ ] Capture final visible screen dump on failure.
-- [ ] Capture the last N transcript lines on failure.
-- [ ] Capture recent E2E hook events on failure.
-- [ ] Capture the workspace file tree on failure.
-- [ ] Capture tmux pane output on tmux test failure.
-- [ ] Remove timing-based sleeps in favor of polling helpers.
-- [ ] Keep primary assertions user-facing and avoid raw ANSI snapshots.
+- [x] Capture final visible screen dump on failure.
+- [x] Capture the last N transcript lines on failure.
+- [x] Capture recent E2E hook events on failure.
+- [x] Capture the workspace file tree on failure.
+- [x] Capture tmux pane output on tmux test failure.
+- [x] Remove timing-based sleeps in favor of polling helpers.
+- [x] Keep primary assertions user-facing and avoid raw ANSI snapshots.
 
 ### Packaging And CI
 

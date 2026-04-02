@@ -74,7 +74,7 @@ export function findUniqueTextCell(screen: ScreenState, text: string): { x: numb
 }
 
 export class TerminalBuffer {
-  private readonly cells: string[][]
+  private cells: string[][]
 
   private cursorX = 0
 
@@ -94,8 +94,8 @@ export class TerminalBuffer {
   }
 
   constructor(
-    private readonly cols: number,
-    private readonly rows: number,
+    private cols: number,
+    private rows: number,
   ) {
     this.cells = Array.from({ length: rows }, () => createBlankLine(cols))
   }
@@ -162,6 +162,26 @@ export class TerminalBuffer {
       mouseModes: { ...this.mouseModes },
       lines: this.cells.map((line) => line.join("")),
     }
+  }
+
+  resize(cols: number, rows: number): void {
+    const nextCells = Array.from({ length: rows }, () => createBlankLine(cols))
+    const copyRows = Math.min(this.rows, rows)
+    const copyCols = Math.min(this.cols, cols)
+
+    for (let row = 0; row < copyRows; row += 1) {
+      for (let col = 0; col < copyCols; col += 1) {
+        nextCells[row]![col] = this.cells[row]![col] ?? " "
+      }
+    }
+
+    this.cols = cols
+    this.rows = rows
+    this.cells = nextCells
+    this.cursorX = clamp(this.cursorX, 0, Math.max(0, cols - 1))
+    this.cursorY = clamp(this.cursorY, 0, Math.max(0, rows - 1))
+    this.savedCursorX = clamp(this.savedCursorX, 0, Math.max(0, cols - 1))
+    this.savedCursorY = clamp(this.savedCursorY, 0, Math.max(0, rows - 1))
   }
 
   private consumeEscape(chunk: string, index: number): number {

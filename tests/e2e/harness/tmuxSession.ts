@@ -4,6 +4,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
 import type { E2eHookEvent } from "../../../src/e2e/hooks"
+import { collectWorkspaceTree, formatDiagnosticsSection, formatTranscriptTail } from "./diagnostics"
 import { dumpVisibleText, TerminalBuffer } from "./terminalBuffer"
 import type { ScreenState, TerminalSession, TmuxSessionOptions } from "./types"
 import { pollUntil } from "./waits"
@@ -16,7 +17,7 @@ const PTY_HELPER = resolve(import.meta.dir, "./pty_helper.py")
 const TMUX_DEFAULT_TERMINAL = "tmux-256color"
 
 type HelperMessage =
-  | { type: "started" }
+  | { type: "started"; pid: number }
   | { type: "output"; data: string }
   | { type: "exit"; code: number | null }
   | { type: "error"; message: string }
@@ -182,17 +183,11 @@ export class TmuxSession implements TerminalSession {
     }
 
     try {
-      await Promise.race([
-        this.exitPromise,
-        (async () => {
-          await Bun.sleep(1000)
-          throw new Error("Timed out waiting for tmux PTY session to exit")
-        })(),
-      ])
-    } catch {
-      this.child.kill("SIGKILL")
-      await this.exitPromise
-    }
+        await pollUntil(() => this.exitCode !== null, 1000)
+      } catch {
+        this.child.kill("SIGKILL")
+        await this.exitPromise
+      }
 
     await this.refreshHookEvents()
     await rm(this.socketPath, { force: true })
@@ -242,6 +237,8 @@ export class TmuxSession implements TerminalSession {
         resolveResize()
       })
     })
+
+    this.buffer.resize(cols, rows)
   }
 
   async waitForOutput(predicate: (screen: ScreenState) => boolean, timeoutMs = 5000): Promise<void> {
@@ -281,6 +278,26 @@ export class TmuxSession implements TerminalSession {
 
   getTranscript(): string {
     return this.transcript
+  }
+
+  async collectFailureDiagnostics(): Promise<string> {
+    await this.refreshHookEvents()
+    const screen = this.getScreen()
+    const workspaceTree = await collectWorkspaceTree(this.options.cwd)
+    const paneOutput = await this.capturePaneOutput()
+
+    const sections = [
+      formatDiagnosticsSection("Visible Screen", dumpVisibleText(screen)),
+      formatDiagnosticsSection("Transcript Tail", formatTranscriptTail(this.transcript)),
+      formatDiagnosticsSection("Recent Hook Events", JSON.stringify(this.getRecentHookEvents(50), null, 2)),
+      formatDiagnosticsSection("Workspace Tree", workspaceTree),
+    ]
+
+    if (paneOutput) {
+      sections.push(formatDiagnosticsSection("Tmux Pane Output", paneOutput))
+    }
+
+    return sections.join("\n\n")
   }
 
   async refreshHookEvents(): Promise<void> {
@@ -414,6 +431,11 @@ export class TmuxSession implements TerminalSession {
         const text = Buffer.from(message.data, "base64").toString("utf8")
         this.transcript += text
         this.buffer.feed(text)
+        continue
+      }
+
+      if (message.type === "exit") {
+        this.exitCode = message.code
         continue
       }
 
