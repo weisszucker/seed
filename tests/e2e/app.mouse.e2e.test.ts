@@ -167,14 +167,14 @@ describe("mouse e2e", () => {
       const start = findUniqueTextCell(session.getScreen(), selectedText)
       const endX = start.x + selectedText.length
 
-      const copySeq = session.getLatestHookSeq()
       await session.write(mouseDownLeft(start.x, start.y))
       await session.write(mouseDragLeft(endX, start.y))
       await session.write(mouseUpLeft(endX, start.y))
-      await waitForRuntimeIdle(session, copySeq)
+      await session.waitForHook(
+        (event) => event.type === "state_published" && event.event === "CLIPBOARD_COPY_SUCCEEDED",
+        10000,
+      )
       await session.waitForOutput((screen) => findText(screen, "Copied selection"), 10000)
-
-      expect(session.getTranscript()).toContain(Buffer.from(selectedText, "utf8").toString("base64"))
 
       await session.write(press("ctrl+l"))
       await session.write(press("q"))

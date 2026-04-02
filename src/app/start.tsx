@@ -4,6 +4,7 @@ import { createRoot, type Root } from "@opentui/react"
 import type { E2eHookSink } from "../e2e/hooks"
 import { createE2eHookSinkFromEnv } from "../e2e/hooks"
 import type { RuntimeEffectRunner } from "./runtime"
+import { forceRestoreTerminal } from "./terminal"
 import { App } from "../ui/App"
 
 type ShutdownSignal = "SIGINT" | "SIGTERM" | "SIGHUP" | "SIGQUIT"
@@ -25,22 +26,6 @@ const SIGNAL_EXIT_CODE: Record<ShutdownSignal, number> = {
   SIGTERM: 143,
   SIGHUP: 129,
   SIGQUIT: 131,
-}
-
-const TERMINAL_RESTORE_SEQUENCE = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?1049l\x1b[?25h"
-
-function forceRestoreTerminal(processRef: ProcessLike): void {
-  try {
-    processRef.stdin.setRawMode?.(false)
-  } catch {
-    // Ignore terminal cleanup failures during shutdown.
-  }
-
-  try {
-    processRef.stdout.write(TERMINAL_RESTORE_SEQUENCE)
-  } catch {
-    // Ignore terminal cleanup failures during shutdown.
-  }
 }
 
 export function createSeedShutdownController({

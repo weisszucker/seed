@@ -150,6 +150,8 @@ Current phase-1 implementation note:
 - the repo currently uses a small Python stdlib PTY helper process for `DirectPtySession`
 - the Bun-side harness still owns fixtures, waits, parsing, and assertions
 - this keeps the PTY transport isolated without introducing a native dependency yet
+- session teardown explicitly restores the parent test terminal so mouse mode and alt-screen state do not leak back to the shell after E2E runs
+- the Bun test runtime also installs a suite-level leak guard that fails the run if parent-terminal mouse or alternate-screen modes are still enabled at the end of the suite
 
 ### 3. Screen Model
 

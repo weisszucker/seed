@@ -59,6 +59,11 @@ describe("clipboard effect runner", () => {
         text: "hello",
       },
       renderer as never,
+      {
+        async copyTextToClipboard() {
+          return false
+        },
+      },
     )
 
     expect(events).toEqual([

@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
+import { forceRestoreTerminal } from "../../../src/app/terminal"
 import type { E2eHookEvent } from "../../../src/e2e/hooks"
 import { collectWorkspaceTree, formatDiagnosticsSection, formatTranscriptTail } from "./diagnostics"
 import { dumpVisibleText, TerminalBuffer } from "./terminalBuffer"
@@ -102,36 +103,40 @@ export class DirectPtySession implements TerminalSession {
   }
 
   async stop(): Promise<void> {
-    if (!this.child || !this.exitPromise) {
-      return
-    }
+    try {
+      if (!this.child || !this.exitPromise) {
+        return
+      }
 
-    if (this.exitCode === null) {
-      await new Promise<void>((resolveStop, rejectStop) => {
-        const payload = JSON.stringify({ type: "stop" })
+      if (this.exitCode === null) {
+        await new Promise<void>((resolveStop, rejectStop) => {
+          const payload = JSON.stringify({ type: "stop" })
 
-        this.child?.stdin.write(`${payload}\n`, (error) => {
-          if (error) {
-            rejectStop(error)
-            return
-          }
-          resolveStop()
+          this.child?.stdin.write(`${payload}\n`, (error) => {
+            if (error) {
+              rejectStop(error)
+              return
+            }
+            resolveStop()
+          })
         })
-      })
 
-      try {
-        await pollUntil(() => this.exitCode !== null, 1000)
-      } catch {
-        this.child.kill("SIGKILL")
+        try {
+          await pollUntil(() => this.exitCode !== null, 1000)
+        } catch {
+          this.child.kill("SIGKILL")
+          await this.exitPromise
+        }
+      } else {
         await this.exitPromise
       }
-    } else {
-      await this.exitPromise
-    }
 
-    await this.refreshHookEvents()
-    this.child = null
-    this.exitPromise = null
+      await this.refreshHookEvents()
+      this.child = null
+      this.exitPromise = null
+    } finally {
+      forceRestoreTerminal(process)
+    }
   }
 
   async write(data: string): Promise<void> {

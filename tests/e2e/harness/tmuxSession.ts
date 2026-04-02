@@ -3,6 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
+import { forceRestoreTerminal } from "../../../src/app/terminal"
 import type { E2eHookEvent } from "../../../src/e2e/hooks"
 import { collectWorkspaceTree, formatDiagnosticsSection, formatTranscriptTail } from "./diagnostics"
 import { dumpVisibleText, TerminalBuffer } from "./terminalBuffer"
@@ -163,37 +164,41 @@ export class TmuxSession implements TerminalSession {
   }
 
   async stop(): Promise<void> {
-    if (!this.child || !this.exitPromise) {
-      return
-    }
-
     try {
-      this.paneCapture = await this.capturePaneOutput()
-      if (this.paneCapture) {
-        this.transcript += `[tmux-pane-capture]\n${this.paneCapture}\n`
+      if (!this.child || !this.exitPromise) {
+        return
       }
-    } catch (error) {
-      this.transcript += `[tmux-pane-capture-error] ${error instanceof Error ? error.message : String(error)}\n`
-    }
 
-    try {
-      await this.killServer()
-    } catch (error) {
-      this.transcript += `[tmux-kill-server-error] ${error instanceof Error ? error.message : String(error)}\n`
-    }
+      try {
+        this.paneCapture = await this.capturePaneOutput()
+        if (this.paneCapture) {
+          this.transcript += `[tmux-pane-capture]\n${this.paneCapture}\n`
+        }
+      } catch (error) {
+        this.transcript += `[tmux-pane-capture-error] ${error instanceof Error ? error.message : String(error)}\n`
+      }
 
-    try {
+      try {
+        await this.killServer()
+      } catch (error) {
+        this.transcript += `[tmux-kill-server-error] ${error instanceof Error ? error.message : String(error)}\n`
+      }
+
+      try {
         await pollUntil(() => this.exitCode !== null, 1000)
       } catch {
         this.child.kill("SIGKILL")
         await this.exitPromise
       }
 
-    await this.refreshHookEvents()
-    await rm(this.socketPath, { force: true })
-    await rm(this.configPath, { force: true })
-    this.child = null
-    this.exitPromise = null
+      await this.refreshHookEvents()
+      await rm(this.socketPath, { force: true })
+      await rm(this.configPath, { force: true })
+      this.child = null
+      this.exitPromise = null
+    } finally {
+      forceRestoreTerminal(process)
+    }
   }
 
   async write(data: string): Promise<void> {

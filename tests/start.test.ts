@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { CliRenderEvents } from "@opentui/core"
 
 import { createSeedShutdownController } from "../src/app/start"
+import { TERMINAL_RESTORE_SEQUENCE } from "../src/app/terminal"
 
 class FakeRenderer extends EventEmitter {
   isDestroyed = false
@@ -26,6 +27,7 @@ class FakeProcess extends EventEmitter {
   rawModeValues: boolean[] = []
 
   stdout = {
+    isTTY: true,
     write: (chunk: string) => {
       this.stdoutWrites.push(chunk)
       return true
@@ -33,6 +35,7 @@ class FakeProcess extends EventEmitter {
   }
 
   stdin = {
+    isTTY: true,
     setRawMode: (value: boolean) => {
       this.rawModeValues.push(value)
     },
@@ -68,9 +71,7 @@ describe("createSeedShutdownController", () => {
     expect(processRef.exitCode).toBe(143)
     expect(processRef.exitCalls).toEqual([143])
     expect(processRef.rawModeValues).toEqual([false])
-    expect(processRef.stdoutWrites).toEqual([
-      "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?1049l\x1b[?25h",
-    ])
+    expect(processRef.stdoutWrites).toEqual([TERMINAL_RESTORE_SEQUENCE])
   })
 
   test("cleanup is idempotent across repeated calls and exit events", () => {

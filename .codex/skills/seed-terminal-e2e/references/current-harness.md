@@ -15,6 +15,10 @@ The key abstraction is `TerminalSession` from `tests/e2e/harness/types.ts`. The 
 
 The direct PTY and tmux transports both use the same screen model, hook wait model, and failure-diagnostics pattern.
 
+Both transports also restore the parent test terminal during teardown. This is separate from Seed's in-PTY shutdown cleanup and prevents mouse-mode leakage back to the developer shell after E2E runs.
+
+The Bun test runtime preloads a suite-level terminal leak guard that watches parent stdout/stderr for mouse-mode and alternate-screen toggles and fails the suite if any tracked mode remains enabled at shutdown.
+
 The PTY itself is currently owned by `tests/e2e/harness/pty_helper.py`. Bun owns fixture setup, assertions, waits, and transcript parsing.
 
 ## Synchronization
@@ -132,6 +136,7 @@ Current E2E coverage is split this way:
 - `tests/e2e/app.keyboard.e2e.test.ts`: leader shortcuts, sidebar keyboard navigation, focus-sensitive input routing, prompt cancel
 - `tests/e2e/app.prompts.e2e.test.ts`: gating prompt behavior, `Don't Save`, untitled `Save As`, and settled save-then-continue flows
 - `tests/e2e/app.mouse.e2e.test.ts`: file clicks, directory toggle, editor click focus return, modal clicks
+- clipboard assertions in mouse E2E should stay host-independent: prefer visible success state and hook-backed completion over assuming OSC 52 is the active clipboard transport
 - `tests/e2e/app.tmux.e2e.test.ts`: tmux keyboard forwarding and tmux mouse forwarding
 - `tests/e2e-hooks.test.ts`: hook sink and sequencing behavior
 - `tests/start.test.ts`: startup integration around E2E sink wiring
