@@ -873,11 +873,24 @@ The design is complete when the implementation can demonstrate all of the follow
 
 ### Packaging And CI
 
-- [ ] Add `test:e2e` script.
-- [ ] Add `test:e2e:direct` script.
-- [ ] Add `test:e2e:tmux` script.
-- [ ] Decide whether tmux coverage runs in default CI or a separate CI job.
-- [ ] Document any CI prerequisites such as tmux availability.
+- [x] Add `test:e2e` script.
+- [x] Add `test:e2e:direct` script.
+- [x] Add `test:e2e:tmux` script.
+- [x] Decide whether tmux coverage runs in default CI or a separate CI job.
+- [x] Document any CI prerequisites such as tmux availability.
+
+Recommended CI shape:
+
+- run `test:e2e:direct` in the default CI job alongside the normal test suite
+- run `test:e2e:tmux` in a separate CI job so tmux setup and failures stay isolated from the default path
+- keep `test:e2e` as the local aggregate command that runs both transports
+
+CI prerequisites:
+
+- `tmux` must be installed and available on `PATH`
+- the runner must allow tmux to create a server socket and launch a detached server
+- the tmux job should run without sandbox restrictions that block tmux socket creation
+- the job should preserve enough terminal support for an outer `TERM=xterm-256color` client PTY
 
 ## Recommendation
 

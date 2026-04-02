@@ -10,6 +10,9 @@
     "dev": "bun --watch run src/index.tsx",
     "start": "bun run src/index.tsx",
     "test": "bun test",
+    "test:e2e": "bun run test:e2e:direct && bun run test:e2e:tmux",
+    "test:e2e:direct": "bun test tests/e2e/direct-pty-session.test.ts tests/e2e/app.keyboard.e2e.test.ts tests/e2e/app.prompts.e2e.test.ts tests/e2e/app.mouse.e2e.test.ts tests/e2e-hooks.test.ts tests/start.test.ts",
+    "test:e2e:tmux": "bun test tests/e2e/app.tmux.e2e.test.ts",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
