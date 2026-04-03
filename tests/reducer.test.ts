@@ -353,6 +353,128 @@ describe("unsaved-change prompt gating", () => {
     expect(result.effects).toEqual([])
   })
 
+  test("developer todo request opens a loading modal and loads persisted items", () => {
+    const state = createInitialState("/tmp/work")
+    const result = reduceEvent(state, { type: "REQUEST_SHOW_DEVELOPER_TODO" })
+
+    expect(result.state.modal).toEqual({
+      kind: "developer_todo",
+      items: [],
+      draftInput: "",
+      selectedIndex: null,
+      focusedSection: "input",
+      loading: true,
+    })
+    expect(result.state.statusMessage).toBe("Loading developer todo list")
+    expect(result.effects).toEqual([{ type: "LOAD_DEVELOPER_TODO_LIST", rootPath: "/tmp/work" }])
+  })
+
+  test("loaded developer todo items keep focus on the input", () => {
+    const requested = reduceEvent(createInitialState("/tmp/work"), {
+      type: "REQUEST_SHOW_DEVELOPER_TODO",
+    }).state
+
+    const result = reduceEvent(requested, {
+      type: "DEVELOPER_TODO_LIST_LOADED",
+      items: [
+        { text: "Ship feature", done: false },
+        { text: "Fix bug", done: true },
+      ],
+    })
+
+    expect(result.state.modal).toEqual({
+      kind: "developer_todo",
+      items: [
+        { text: "Ship feature", done: false },
+        { text: "Fix bug", done: true },
+      ],
+      draftInput: "",
+      selectedIndex: 1,
+      focusedSection: "input",
+      loading: false,
+    })
+    expect(result.state.statusMessage).toBe("Developer todo list")
+  })
+
+  test("submitting a developer todo entry appends and persists it", () => {
+    const loaded = reduceEvent(
+      reduceEvent(createInitialState("/tmp/work"), { type: "REQUEST_SHOW_DEVELOPER_TODO" }).state,
+      {
+        type: "DEVELOPER_TODO_LIST_LOADED",
+        items: [{ text: "Existing task", done: false }],
+      },
+    ).state
+    const withDraft = reduceEvent(loaded, {
+      type: "DEVELOPER_TODO_DRAFT_UPDATED",
+      text: "New task",
+    }).state
+
+    const result = reduceEvent(withDraft, { type: "DEVELOPER_TODO_SUBMITTED" })
+
+    expect(result.state.modal).toEqual({
+      kind: "developer_todo",
+      items: [
+        { text: "Existing task", done: false },
+        { text: "New task", done: false },
+      ],
+      draftInput: "",
+      selectedIndex: 1,
+      focusedSection: "input",
+      loading: false,
+    })
+    expect(result.effects).toEqual([
+      {
+        type: "SAVE_DEVELOPER_TODO_LIST",
+        rootPath: "/tmp/work",
+        items: [
+          { text: "Existing task", done: false },
+          { text: "New task", done: false },
+        ],
+      },
+    ])
+  })
+
+  test("toggling the selected developer todo persists the updated state", () => {
+    const loaded = reduceEvent(
+      reduceEvent(createInitialState("/tmp/work"), { type: "REQUEST_SHOW_DEVELOPER_TODO" }).state,
+      {
+        type: "DEVELOPER_TODO_LIST_LOADED",
+        items: [
+          { text: "First task", done: false },
+          { text: "Second task", done: false },
+        ],
+      },
+    ).state
+    const listFocused = reduceEvent(loaded, {
+      type: "DEVELOPER_TODO_FOCUS_CHANGED",
+      section: "list",
+    }).state
+
+    const result = reduceEvent(listFocused, { type: "DEVELOPER_TODO_TOGGLE_SELECTED" })
+
+    expect(result.state.modal).toEqual({
+      kind: "developer_todo",
+      items: [
+        { text: "First task", done: false },
+        { text: "Second task", done: true },
+      ],
+      draftInput: "",
+      selectedIndex: 1,
+      focusedSection: "list",
+      loading: false,
+    })
+    expect(result.effects).toEqual([
+      {
+        type: "SAVE_DEVELOPER_TODO_LIST",
+        rootPath: "/tmp/work",
+        items: [
+          { text: "First task", done: false },
+          { text: "Second task", done: true },
+        ],
+      },
+    ])
+  })
+
   test("create path request opens create modal", () => {
     const state = reduceEvent(createInitialState("/tmp"), {
       type: "FILE_LOADED",

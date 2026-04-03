@@ -113,6 +113,10 @@ Fixing a bug requires adding a test that would have caught it.
 
 The absence of tests is a design failure, not a time-saving measure.
 
+3.4 Be Careful Adding e2e Tests
+
+Do not arbitrarily add e2e tests. If a new feature merely replicates the process of existing components, rather than introducing new ones, and its process logic is already covered by other e2e tests, then e2e tests may be omitted.
+
 4. UI & UX Consistency Principles
 4.1 UI Is a Projection of State
 

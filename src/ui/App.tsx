@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
 import {
   type InputRenderable,
@@ -13,6 +13,7 @@ import { basename } from "node:path"
 import { SeedRuntime, type RuntimeEffectRunner } from "../app/runtime"
 import type { AppEvent, EditorState } from "../core/types"
 import type { E2eHookSink } from "../e2e/hooks"
+import { DeveloperTodoModal } from "./components/DeveloperTodoModal"
 import { EditorPane } from "./components/EditorPane"
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal"
 import { MovePathModal } from "./components/MovePathModal"
@@ -52,6 +53,7 @@ const commandMap: Record<CommandName, AppEvent> = {
   newFile: { type: "REQUEST_NEW_FILE" },
   createPath: { type: "REQUEST_CREATE_PATH" },
   movePath: { type: "REQUEST_MOVE_PATH" },
+  developerTodo: { type: "REQUEST_SHOW_DEVELOPER_TODO" },
   toggleSidebar: { type: "TOGGLE_SIDEBAR" },
   shiftFocus: { type: "TOGGLE_FOCUS_PANE" },
   showShortcutHelp: { type: "REQUEST_SHOW_SHORTCUT_HELP" },
@@ -127,6 +129,47 @@ function handleModalKeyboardEvent(
       })
       return "consume"
     }
+    return "pass_through"
+  }
+
+  if (state.modal?.kind === "developer_todo") {
+    if (state.modal.loading) {
+      return "consume"
+    }
+
+    if ((key.name === "tab" || key.name === "up") && state.modal.focusedSection === "input") {
+      if (state.modal.items.length > 0) {
+        dispatch({ type: "DEVELOPER_TODO_FOCUS_CHANGED", section: "list" })
+      }
+      return "consume"
+    }
+
+    if (key.name === "tab" && state.modal.focusedSection === "list") {
+      dispatch({ type: "DEVELOPER_TODO_FOCUS_CHANGED", section: "input" })
+      return "consume"
+    }
+
+    if (state.modal.focusedSection === "list") {
+      if (key.name === "up") {
+        dispatch({ type: "DEVELOPER_TODO_SELECT_PREV" })
+        return "consume"
+      }
+      if (key.name === "down") {
+        const selectedIndex = state.modal.selectedIndex ?? 0
+        if (selectedIndex >= state.modal.items.length - 1) {
+          dispatch({ type: "DEVELOPER_TODO_FOCUS_CHANGED", section: "input" })
+          return "consume"
+        }
+        dispatch({ type: "DEVELOPER_TODO_SELECT_NEXT" })
+        return "consume"
+      }
+      if (key.name === "enter" || key.name === "return" || key.name === "space") {
+        dispatch({ type: "DEVELOPER_TODO_TOGGLE_SELECTED" })
+        return "consume"
+      }
+      return "consume"
+    }
+
     return "pass_through"
   }
 
@@ -235,6 +278,7 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
   const createPathInputRef = useRef<InputRenderable | null>(null)
   const moveSourceInputRef = useRef<InputRenderable | null>(null)
   const moveDestinationInputRef = useRef<InputRenderable | null>(null)
+  const developerTodoInputRef = useRef<InputRenderable | null>(null)
   const leaderPendingRef = useRef(false)
   const leaderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const treeSitterClientRef = useRef<TreeSitterClient | null>(null)
@@ -293,6 +337,31 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
     textareaRef.current.focus()
   }, [state.document.path, state.focusedPane, state.modal])
 
+  useLayoutEffect(() => {
+    const modal = state.modal
+    const input = developerTodoInputRef.current
+
+    if (modal?.kind !== "developer_todo" || !input) {
+      return
+    }
+
+    if (input.value !== modal.draftInput) {
+      input.value = modal.draftInput
+    }
+
+    if (modal.loading) {
+      input.blur()
+      return
+    }
+
+    if (modal.focusedSection === "input") {
+      input.focus()
+      return
+    }
+
+    input.blur()
+  }, [state.modal])
+
   useEffect(() => {
     function handleSelection(selection: Selection): void {
       const text = selection.getSelectedText()
@@ -347,6 +416,10 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
 
     if (currentState.modal?.kind === "move_path") {
       return currentState.modal.focusedField === "source" ? moveSourceInputRef.current : moveDestinationInputRef.current
+    }
+
+    if (currentState.modal?.kind === "developer_todo" && currentState.modal.focusedSection === "input") {
+      return developerTodoInputRef.current
     }
 
     if (currentState.modal || currentState.focusedPane !== "editor") {
@@ -466,6 +539,7 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
   const saveAsModal = state.modal?.kind === "save_as" ? state.modal : null
   const createPathModal = state.modal?.kind === "create_path" ? state.modal : null
   const movePathModal = state.modal?.kind === "move_path" ? state.modal : null
+  const developerTodoModal = state.modal?.kind === "developer_todo" ? state.modal : null
   const shortcutHelpModal = state.modal?.kind === "shortcut_help" ? state.modal : null
   const contentMaxWidth = getContentMaxWidth(state.sidebarVisible)
   const leaderHint = leaderPending ? `Leader: ${formatKeybinding(state.leaderKey, "[key]")}` : null
@@ -582,6 +656,20 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
           onDestinationPathChange={(path) => runtime.dispatch({ type: "MOVE_DESTINATION_PATH_UPDATED", path })}
           onFocusChange={(field) => runtime.dispatch({ type: "MOVE_PATH_FOCUS_CHANGED", field })}
           onSubmit={() => runtime.dispatch({ type: "MOVE_PATH_SUBMITTED" })}
+          onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
+        />
+      ) : null}
+
+      {developerTodoModal ? (
+        <DeveloperTodoModal
+          items={developerTodoModal.items}
+          draftInput={developerTodoModal.draftInput}
+          selectedIndex={developerTodoModal.selectedIndex}
+          focusedSection={developerTodoModal.focusedSection}
+          loading={developerTodoModal.loading}
+          inputRef={developerTodoInputRef}
+          onDraftChange={(text) => runtime.dispatch({ type: "DEVELOPER_TODO_DRAFT_UPDATED", text })}
+          onSubmit={() => runtime.dispatch({ type: "DEVELOPER_TODO_SUBMITTED" })}
           onCancel={() => runtime.dispatch({ type: "PROMPT_CANCEL" })}
         />
       ) : null}

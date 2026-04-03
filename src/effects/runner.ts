@@ -4,6 +4,7 @@ import type { AppEffect, AppEvent } from "../core/types"
 import { copyTextToClipboard } from "./clipboard"
 import { loadUserConfig } from "./config"
 import { createPath, deletePath, loadFileTree, movePath, readTextFile, writeTextFile } from "./fs"
+import { loadDeveloperTodoList, saveDeveloperTodoList } from "./todo"
 
 type EffectRunnerDependencies = {
   copyTextToClipboard?: typeof copyTextToClipboard
@@ -34,6 +35,16 @@ export async function runEffect(
       case "SAVE_FILE": {
         await writeTextFile(effect.path, effect.text)
         return [{ type: "FILE_SAVED", path: effect.path }]
+      }
+
+      case "LOAD_DEVELOPER_TODO_LIST": {
+        const items = await loadDeveloperTodoList(effect.rootPath)
+        return [{ type: "DEVELOPER_TODO_LIST_LOADED", items }]
+      }
+
+      case "SAVE_DEVELOPER_TODO_LIST": {
+        await saveDeveloperTodoList(effect.rootPath, effect.items)
+        return [{ type: "DEVELOPER_TODO_LIST_SAVED" }]
       }
 
       case "COPY_TO_CLIPBOARD": {
@@ -86,6 +97,12 @@ export async function runEffect(
     }
     if (effect.type === "SAVE_FILE") {
       return [{ type: "FILE_SAVE_FAILED", message: `Failed to save file: ${message}` }]
+    }
+    if (effect.type === "LOAD_DEVELOPER_TODO_LIST") {
+      return [{ type: "DEVELOPER_TODO_LIST_LOAD_FAILED", message: `Failed to load developer todo list: ${message}` }]
+    }
+    if (effect.type === "SAVE_DEVELOPER_TODO_LIST") {
+      return [{ type: "DEVELOPER_TODO_LIST_SAVE_FAILED", message: `Failed to save developer todo list: ${message}` }]
     }
     if (effect.type === "CREATE_PATH") {
       return [{ type: "PATH_CREATE_FAILED", message: `Failed to create path: ${message}` }]

@@ -1,0 +1,2 @@
+- [ ] optimize startup scan for big folder
+- [ ] review guideline.md

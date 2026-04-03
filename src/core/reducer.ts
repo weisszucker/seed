@@ -1,4 +1,4 @@
-import type { AppEffect, AppEvent, EditorState, ModalState, PendingAction } from "./types"
+import type { AppEffect, AppEvent, DeveloperTodoItem, EditorState, ModalState, PendingAction } from "./types"
 import { basename, isAbsolute, join, relative, resolve } from "node:path"
 
 type ReduceResult = {
@@ -41,6 +41,7 @@ function isUserInputEvent(event: AppEvent): boolean {
     case "REQUEST_COPY_TEXT":
     case "REQUEST_CREATE_PATH":
     case "REQUEST_MOVE_PATH":
+    case "REQUEST_SHOW_DEVELOPER_TODO":
     case "REQUEST_SHOW_SHORTCUT_HELP":
     case "SAVE_AS_PATH_UPDATED":
     case "SAVE_AS_SUBMITTED":
@@ -50,6 +51,12 @@ function isUserInputEvent(event: AppEvent): boolean {
     case "MOVE_DESTINATION_PATH_UPDATED":
     case "MOVE_PATH_FOCUS_CHANGED":
     case "MOVE_PATH_SUBMITTED":
+    case "DEVELOPER_TODO_DRAFT_UPDATED":
+    case "DEVELOPER_TODO_SUBMITTED":
+    case "DEVELOPER_TODO_SELECT_PREV":
+    case "DEVELOPER_TODO_SELECT_NEXT":
+    case "DEVELOPER_TODO_FOCUS_CHANGED":
+    case "DEVELOPER_TODO_TOGGLE_SELECTED":
     case "PROMPT_CHOOSE_SAVE":
     case "PROMPT_CHOOSE_DONT_SAVE":
     case "DELETE_CONFIRM_ACCEPT":
@@ -346,6 +353,16 @@ function isBlockedByModal(state: EditorState, event: AppEvent): boolean {
     "MOVE_DESTINATION_PATH_UPDATED",
     "MOVE_PATH_FOCUS_CHANGED",
     "MOVE_PATH_SUBMITTED",
+    "DEVELOPER_TODO_LIST_LOADED",
+    "DEVELOPER_TODO_LIST_LOAD_FAILED",
+    "DEVELOPER_TODO_DRAFT_UPDATED",
+    "DEVELOPER_TODO_SUBMITTED",
+    "DEVELOPER_TODO_SELECT_PREV",
+    "DEVELOPER_TODO_SELECT_NEXT",
+    "DEVELOPER_TODO_FOCUS_CHANGED",
+    "DEVELOPER_TODO_TOGGLE_SELECTED",
+    "DEVELOPER_TODO_LIST_SAVED",
+    "DEVELOPER_TODO_LIST_SAVE_FAILED",
     "DELETE_CONFIRM_ACCEPT",
     "FILE_SAVED",
     "FILE_SAVE_FAILED",
@@ -404,6 +421,29 @@ function toMovePathModal(rootPath: string, currentPath: string | null): ModalSta
     destinationPathInput: "",
     focusedField: "source",
   }
+}
+
+function toDeveloperTodoModal(): ModalState {
+  return {
+    kind: "developer_todo",
+    items: [],
+    draftInput: "",
+    selectedIndex: null,
+    focusedSection: "input",
+    loading: true,
+  }
+}
+
+function getDeveloperTodoSelection(items: DeveloperTodoItem[], selectedIndex: number | null): number | null {
+  if (items.length === 0) {
+    return null
+  }
+
+  if (selectedIndex === null) {
+    return 0
+  }
+
+  return Math.min(Math.max(selectedIndex, 0), items.length - 1)
 }
 
 function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
@@ -745,6 +785,17 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         effects: [],
       }
 
+    case "REQUEST_SHOW_DEVELOPER_TODO":
+      return {
+        state: {
+          ...state,
+          modal: toDeveloperTodoModal(),
+          postSaveAction: null,
+          statusMessage: "Loading developer todo list",
+        },
+        effects: [{ type: "LOAD_DEVELOPER_TODO_LIST", rootPath: state.cwd }],
+      }
+
     case "REQUEST_SHOW_SHORTCUT_HELP":
       return {
         state: {
@@ -890,7 +941,212 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
           ...state,
           modal: null,
           postSaveAction: null,
-          statusMessage: state.modal?.kind === "shortcut_help" ? "Ready" : "Canceled",
+          statusMessage:
+            state.modal?.kind === "shortcut_help" || state.modal?.kind === "developer_todo" ? "Ready" : "Canceled",
+        },
+        effects: [],
+      }
+
+    case "DEVELOPER_TODO_LIST_LOADED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            items: event.items,
+            selectedIndex: getDeveloperTodoSelection(event.items, event.items.length - 1),
+            focusedSection: "input",
+            loading: false,
+          },
+          statusMessage: "Developer todo list",
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_LIST_LOAD_FAILED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return {
+          state: {
+            ...state,
+            statusMessage: event.message,
+          },
+          effects: [],
+        }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            loading: false,
+          },
+          statusMessage: event.message,
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_DRAFT_UPDATED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            draftInput: event.text,
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_SELECT_PREV": {
+      if (!state.modal || state.modal.kind !== "developer_todo" || state.modal.focusedSection !== "list") {
+        return { state, effects: [] }
+      }
+
+      const currentIndex = getDeveloperTodoSelection(state.modal.items, state.modal.selectedIndex)
+      if (currentIndex === null) {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            selectedIndex: Math.max(currentIndex - 1, 0),
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_SELECT_NEXT": {
+      if (!state.modal || state.modal.kind !== "developer_todo" || state.modal.focusedSection !== "list") {
+        return { state, effects: [] }
+      }
+
+      const currentIndex = getDeveloperTodoSelection(state.modal.items, state.modal.selectedIndex)
+      if (currentIndex === null) {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            selectedIndex: Math.min(currentIndex + 1, state.modal.items.length - 1),
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_FOCUS_CHANGED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return { state, effects: [] }
+      }
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            focusedSection: event.section === "list" && state.modal.items.length > 0 ? "list" : "input",
+            selectedIndex: getDeveloperTodoSelection(state.modal.items, state.modal.selectedIndex),
+          },
+        },
+        effects: [],
+      }
+    }
+
+    case "DEVELOPER_TODO_SUBMITTED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return { state, effects: [] }
+      }
+
+      const text = state.modal.draftInput.trim()
+      if (!text) {
+        return {
+          state: {
+            ...state,
+            statusMessage: "Todo entry cannot be empty",
+          },
+          effects: [],
+        }
+      }
+
+      const items = [...state.modal.items, { text, done: false }]
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            items,
+            draftInput: "",
+            selectedIndex: items.length - 1,
+            focusedSection: "input",
+          },
+          statusMessage: "Saving developer todo list",
+        },
+        effects: [{ type: "SAVE_DEVELOPER_TODO_LIST", rootPath: state.cwd, items }],
+      }
+    }
+
+    case "DEVELOPER_TODO_TOGGLE_SELECTED": {
+      if (!state.modal || state.modal.kind !== "developer_todo") {
+        return { state, effects: [] }
+      }
+
+      const selectedIndex = getDeveloperTodoSelection(state.modal.items, state.modal.selectedIndex)
+      if (selectedIndex === null) {
+        return { state, effects: [] }
+      }
+
+      const items = state.modal.items.map((item, index) =>
+        index === selectedIndex ? { ...item, done: !item.done } : item,
+      )
+
+      return {
+        state: {
+          ...state,
+          modal: {
+            ...state.modal,
+            items,
+            selectedIndex,
+            focusedSection: "list",
+          },
+          statusMessage: "Saving developer todo list",
+        },
+        effects: [{ type: "SAVE_DEVELOPER_TODO_LIST", rootPath: state.cwd, items }],
+      }
+    }
+
+    case "DEVELOPER_TODO_LIST_SAVED":
+      return {
+        state: {
+          ...state,
+          statusMessage: "Developer todo list updated",
+        },
+        effects: [],
+      }
+
+    case "DEVELOPER_TODO_LIST_SAVE_FAILED":
+      return {
+        state: {
+          ...state,
+          statusMessage: event.message,
         },
         effects: [],
       }

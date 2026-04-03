@@ -3,6 +3,11 @@ export type PendingAction =
   | { type: "new_file" }
   | { type: "quit" }
 
+export type DeveloperTodoItem = {
+  text: string
+  done: boolean
+}
+
 export type ModalState =
   | {
       kind: "unsaved_changes"
@@ -32,6 +37,14 @@ export type ModalState =
       destinationPathInput: string
       focusedField: "source" | "destination"
     }
+  | {
+      kind: "developer_todo"
+      items: DeveloperTodoItem[]
+      draftInput: string
+      selectedIndex: number | null
+      focusedSection: "list" | "input"
+      loading: boolean
+    }
 
 export type FileNode = {
   name: string
@@ -56,6 +69,7 @@ export type KeybindingMap = {
   newFile: string
   createPath: string
   movePath: string
+  developerTodo: string
   toggleSidebar: string
   shiftFocus: string
   showShortcutHelp: string
@@ -83,6 +97,8 @@ export type AppEffect =
   | { type: "LOAD_FILE_TREE"; rootPath: string }
   | { type: "LOAD_FILE"; path: string }
   | { type: "SAVE_FILE"; path: string; text: string }
+  | { type: "LOAD_DEVELOPER_TODO_LIST"; rootPath: string }
+  | { type: "SAVE_DEVELOPER_TODO_LIST"; rootPath: string; items: DeveloperTodoItem[] }
   | { type: "COPY_TO_CLIPBOARD"; text: string }
   | { type: "CREATE_PATH"; rootPath: string; path: string; nodeType: "file" | "directory" }
   | { type: "MOVE_PATH"; rootPath: string; sourcePath: string; destinationPath: string }
@@ -115,6 +131,7 @@ export type AppEvent =
   | { type: "REQUEST_COPY_TEXT"; text: string }
   | { type: "REQUEST_CREATE_PATH" }
   | { type: "REQUEST_MOVE_PATH" }
+  | { type: "REQUEST_SHOW_DEVELOPER_TODO" }
   | { type: "REQUEST_SHOW_SHORTCUT_HELP" }
   | { type: "SAVE_AS_PATH_UPDATED"; path: string }
   | { type: "SAVE_AS_SUBMITTED" }
@@ -124,6 +141,16 @@ export type AppEvent =
   | { type: "MOVE_DESTINATION_PATH_UPDATED"; path: string }
   | { type: "MOVE_PATH_FOCUS_CHANGED"; field: "source" | "destination" }
   | { type: "MOVE_PATH_SUBMITTED" }
+  | { type: "DEVELOPER_TODO_LIST_LOADED"; items: DeveloperTodoItem[] }
+  | { type: "DEVELOPER_TODO_LIST_LOAD_FAILED"; message: string }
+  | { type: "DEVELOPER_TODO_DRAFT_UPDATED"; text: string }
+  | { type: "DEVELOPER_TODO_SUBMITTED" }
+  | { type: "DEVELOPER_TODO_SELECT_PREV" }
+  | { type: "DEVELOPER_TODO_SELECT_NEXT" }
+  | { type: "DEVELOPER_TODO_FOCUS_CHANGED"; section: "list" | "input" }
+  | { type: "DEVELOPER_TODO_TOGGLE_SELECTED" }
+  | { type: "DEVELOPER_TODO_LIST_SAVED" }
+  | { type: "DEVELOPER_TODO_LIST_SAVE_FAILED"; message: string }
   | { type: "PROMPT_CHOOSE_SAVE" }
   | { type: "PROMPT_CHOOSE_DONT_SAVE" }
   | { type: "DELETE_CONFIRM_ACCEPT" }
@@ -153,6 +180,7 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   newFile: "n",
   createPath: "c",
   movePath: "m",
+  developerTodo: "t",
   toggleSidebar: "e",
   shiftFocus: "l",
   showShortcutHelp: "k",

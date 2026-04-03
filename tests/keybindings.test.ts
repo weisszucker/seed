@@ -115,6 +115,21 @@ describe("keybinding matching", () => {
     expect(resolution).toEqual({ type: "command", command: "movePath" })
   })
 
+  test("matches t for developerTodo after leader", () => {
+    const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
+      name: "t",
+      ctrl: false,
+      shift: false,
+      meta: undefined,
+      option: false,
+      repeated: false,
+      eventType: "press",
+      sequence: "",
+    } as never)
+
+    expect(resolution).toEqual({ type: "command", command: "developerTodo" })
+  })
+
   test("matches e for toggleSidebar after leader", () => {
     const resolution = resolveLeaderKeyEvent(true, DEFAULT_LEADER_KEY, DEFAULT_KEYBINDINGS, {
       name: "e",

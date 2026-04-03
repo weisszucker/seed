@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { join } from "node:path"
 
 import { press, typeText } from "./harness/input"
 import { DirectPtySession } from "./harness/directPtySession"
@@ -53,6 +54,11 @@ async function quitWithoutSaving(session: DirectPtySession): Promise<void> {
   await session.write(press("right"))
   await session.write(press("enter"))
   await session.waitForHook((event) => event.type === "app_exit", 10000)
+}
+
+async function runLeaderCommand(session: DirectPtySession, key: string): Promise<void> {
+  await session.write(press("ctrl+l"))
+  await session.write(press(key))
 }
 
 describe("keyboard e2e", () => {
@@ -207,6 +213,80 @@ describe("keyboard e2e", () => {
         expect(findText(session.getScreen(), "draft")).toBeTrue()
 
         await quitWithoutSaving(session)
+      })
+    }, 20000)
+
+    test(`manages the developer todo list via leader shortcut in ${term}`, async () => {
+      await withLatestSessionDiagnostics(sessionStack, async () => {
+        const fixture = await createWorkspaceFixture({
+          files: {},
+          config: {
+            leaderKey: "ctrl+l",
+          },
+        })
+        fixtureStack.push(fixture)
+
+        const session = new DirectPtySession({
+          cwd: fixture.path,
+          configPath: fixture.configPath,
+          eventLogPath: fixture.eventLogPath,
+          term,
+        })
+        sessionStack.push(session)
+
+        await session.start()
+        await session.waitForHook((event) => event.type === "initial_render_complete", 10000)
+
+        await runLeaderCommand(session, "t")
+        await session.waitForHook(
+          (event) => event.type === "modal_changed" && event.modal === "developer_todo",
+          10000,
+        )
+        await session.waitForOutput((screen) => findText(screen, "Developer todo"), 10000)
+
+        await session.write(typeText("Ship feature"))
+        const addSeq = session.getLatestHookSeq()
+        await session.write(press("enter"))
+        await session.waitForHook(
+          (event) => event.type === "runtime_idle" && event.seq > addSeq,
+          10000,
+        )
+        await session.waitForOutput((screen) => findText(screen, "Ship feature"), 10000)
+        expect(await Bun.file(join(fixture.path, ".seed", "todo.md")).text()).toBe("- [ ] Ship feature\n")
+
+        const secondEntrySeq = session.getLatestHookSeq()
+        await session.write(typeText("Fix bug"))
+        await session.write(press("enter"))
+        await session.waitForHook(
+          (event) => event.type === "runtime_idle" && event.seq > secondEntrySeq,
+          10000,
+        )
+        expect(await Bun.file(join(fixture.path, ".seed", "todo.md")).text()).toBe(
+          "- [ ] Ship feature\n- [ ] Fix bug\n",
+        )
+
+        const listFocusSeq = session.getLatestHookSeq()
+        await session.write(press("up"))
+        await session.waitForHook(
+          (event) => event.type === "runtime_idle" && event.seq > listFocusSeq,
+          10000,
+        )
+        const toggleSeq = session.getLatestHookSeq()
+        await session.write(press("space"))
+        await session.waitForHook(
+          (event) => event.type === "runtime_idle" && event.seq > toggleSeq,
+          10000,
+        )
+        expect(await Bun.file(join(fixture.path, ".seed", "todo.md")).text()).toBe("- [ ] Ship feature\n- [x] Fix bug\n")
+
+        await session.write(press("escape"))
+        await session.waitForOutput((screen) => !findText(screen, "Developer todo"), 10000)
+
+        await runLeaderCommand(session, "t")
+        await session.waitForOutput(
+          (screen) => findText(screen, "Developer todo") && findText(screen, "Ship feature") && findText(screen, "Fix bug"),
+          10000,
+        )
       })
     }, 20000)
   }
