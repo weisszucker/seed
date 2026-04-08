@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react"
 import type { SyntaxStyle, TextareaRenderable } from "@opentui/core"
+import { useEffect, useRef } from "react"
 
 import { uiColors, uiLayout } from "../../theme"
 import { EDITOR_TEXTAREA_KEYBINDINGS } from "../keybindings"
@@ -9,6 +9,7 @@ import {
   type AppliedHighlightState,
   type SyntaxHighlightClient,
 } from "../editorHighlighting"
+import { EditorScrollbarView } from "./EditorScrollbarView"
 
 type EditorPaneProps = {
   sidebarVisible: boolean
@@ -104,7 +105,7 @@ export function EditorPane({
       <box height={1} flexShrink={0}>
         <text fg={uiColors.editorTitle}>{title}</text>
       </box>
-      <box flexGrow={1} minHeight={1}>
+      <box flexGrow={1} minHeight={1} flexDirection="row">
         <textarea
           key={documentPath ?? "__untitled__"}
           ref={textareaRef}
@@ -123,7 +124,11 @@ export function EditorPane({
           textColor={uiColors.textPrimary}
           selectionBg={uiColors.editorSelectionBackground}
           selectionFg={uiColors.editorSelectionText}
+          flexShrink={1}
         />
+        <box width={uiLayout.editorScrollbarGap + uiLayout.editorScrollbarWidth} flexShrink={0} alignItems="flex-end">
+          <EditorScrollbarView targetRef={textareaRef} />
+        </box>
       </box>
     </box>
   )
