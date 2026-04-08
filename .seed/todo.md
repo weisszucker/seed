@@ -1,2 +1,4 @@
 - [ ] optimize startup scan for big folder
-- [ ] review guideline.md
+- [x] review guideline.md
+- [ ] add pgup/pgdown support
+- [ ] add scrollbar

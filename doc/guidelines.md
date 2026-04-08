@@ -1,12 +1,14 @@
 CLI Editor Design & Development Guidelines
+
 0. Purpose
 
 This document defines the non-negotiable principles for designing and evolving the CLI editor.
-The goal is high maintainability, high testability, and consistent user experience, especially when development is assisted by an AI agent.
+The goal is high maintainability, high testability, and consistent user experience.
 
 When making any coding or design decision, prefer the option that best satisfies these principles, even if it appears slower or more verbose in the short term.
 
 1. Core Architectural Principles
+
 1.1 Separation of Concerns Is Mandatory
 
 The system must be conceptually divided into:
@@ -266,11 +268,3 @@ Final Rule
 When in doubt, move logic toward the core, isolate effects, and make state explicit.
 
 This rule overrides all others.
-
-If you want, I can also:
-
-convert this into a shorter “AI instruction prompt” version, or
-
-add a checklist the agent must pass before submitting code, or
-
-tailor this specifically to text editors vs code editors (search, syntax, etc.).
