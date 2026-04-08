@@ -385,8 +385,8 @@ describe("unsaved-change prompt gating", () => {
     expect(result.state.modal).toEqual({
       kind: "developer_todo",
       items: [
-        { text: "Ship feature", done: false },
         { text: "Fix bug", done: true },
+        { text: "Ship feature", done: false },
       ],
       draftInput: "",
       selectedIndex: 1,
@@ -455,11 +455,11 @@ describe("unsaved-change prompt gating", () => {
     expect(result.state.modal).toEqual({
       kind: "developer_todo",
       items: [
-        { text: "First task", done: false },
         { text: "Second task", done: true },
+        { text: "First task", done: false },
       ],
       draftInput: "",
-      selectedIndex: 1,
+      selectedIndex: 0,
       focusedSection: "list",
       loading: false,
     })
@@ -468,8 +468,8 @@ describe("unsaved-change prompt gating", () => {
         type: "SAVE_DEVELOPER_TODO_LIST",
         rootPath: "/tmp/work",
         items: [
-          { text: "First task", done: false },
           { text: "Second task", done: true },
+          { text: "First task", done: false },
         ],
       },
     ])

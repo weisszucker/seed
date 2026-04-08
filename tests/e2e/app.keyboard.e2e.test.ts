@@ -277,14 +277,15 @@ describe("keyboard e2e", () => {
           (event) => event.type === "runtime_idle" && event.seq > toggleSeq,
           10000,
         )
-        expect(await Bun.file(join(fixture.path, ".seed", "todo.md")).text()).toBe("- [ ] Ship feature\n- [x] Fix bug\n")
+        expect(await Bun.file(join(fixture.path, ".seed", "todo.md")).text()).toBe("- [x] Fix bug\n- [ ] Ship feature\n")
 
         await session.write(press("escape"))
         await session.waitForOutput((screen) => !findText(screen, "Developer todo"), 10000)
 
         await runLeaderCommand(session, "t")
         await session.waitForOutput(
-          (screen) => findText(screen, "Developer todo") && findText(screen, "Ship feature") && findText(screen, "Fix bug"),
+          (screen) =>
+            findText(screen, "Developer todo") && findText(screen, "[x]") && findText(screen, "Fix bug") && findText(screen, "Ship feature"),
           10000,
         )
       })

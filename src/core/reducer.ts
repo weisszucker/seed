@@ -446,6 +446,22 @@ function getDeveloperTodoSelection(items: DeveloperTodoItem[], selectedIndex: nu
   return Math.min(Math.max(selectedIndex, 0), items.length - 1)
 }
 
+function orderDeveloperTodoItems(items: DeveloperTodoItem[]): DeveloperTodoItem[] {
+  const doneItems: DeveloperTodoItem[] = []
+  const openItems: DeveloperTodoItem[] = []
+
+  for (const item of items) {
+    if (item.done) {
+      doneItems.push(item)
+      continue
+    }
+
+    openItems.push(item)
+  }
+
+  return [...doneItems, ...openItems]
+}
+
 function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
   const pathFromRoot = relative(rootPath, targetPath)
   if (pathFromRoot === "") {
@@ -952,13 +968,15 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         return { state, effects: [] }
       }
 
+      const items = orderDeveloperTodoItems(event.items)
+
       return {
         state: {
           ...state,
           modal: {
             ...state.modal,
-            items: event.items,
-            selectedIndex: getDeveloperTodoSelection(event.items, event.items.length - 1),
+            items,
+            selectedIndex: getDeveloperTodoSelection(items, items.length - 1),
             focusedSection: "input",
             loading: false,
           },
@@ -1087,7 +1105,7 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
         }
       }
 
-      const items = [...state.modal.items, { text, done: false }]
+      const items = orderDeveloperTodoItems([...state.modal.items, { text, done: false }])
       return {
         state: {
           ...state,
@@ -1117,19 +1135,22 @@ export function reduceEvent(state: EditorState, event: AppEvent): ReduceResult {
       const items = state.modal.items.map((item, index) =>
         index === selectedIndex ? { ...item, done: !item.done } : item,
       )
+      const orderedItems = orderDeveloperTodoItems(items)
+      const toggledItem = items[selectedIndex]
+      const nextSelectedIndex = orderedItems.findIndex((item) => item === toggledItem)
 
       return {
         state: {
           ...state,
           modal: {
             ...state.modal,
-            items,
-            selectedIndex,
+            items: orderedItems,
+            selectedIndex: getDeveloperTodoSelection(orderedItems, nextSelectedIndex),
             focusedSection: "list",
           },
           statusMessage: "Saving developer todo list",
         },
-        effects: [{ type: "SAVE_DEVELOPER_TODO_LIST", rootPath: state.cwd, items }],
+        effects: [{ type: "SAVE_DEVELOPER_TODO_LIST", rootPath: state.cwd, items: orderedItems }],
       }
     }
 

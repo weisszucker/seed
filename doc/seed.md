@@ -59,7 +59,7 @@ The default leader key is `ctrl-l`.
 `<leader> n` for opening a new untitled file.
 `<leader> c` for creating a file or folder by path relative to the workspace root. A trailing platform path separator means folder creation.
 `<leader> m` for moving a file or folder by source and destination path relative to the workspace root.
-`<leader> t` for opening the developer todo list. The list is stored in `.seed/todo.md` inside the workspace root, opens with focus in the input field, clears the input after each submitted entry while keeping focus there, and lets the selected entry be marked done or undone. Use the arrow keys to move between existing entries and the input field.
+`<leader> t` for opening the developer todo list. The list is stored in `.seed/todo.md` inside the workspace root, opens with focus in the input field, clears the input after each submitted entry while keeping focus there, and lets the selected entry be marked done or undone. Done entries are shown above open entries, while older entries stay higher within each group. Use the arrow keys to move between existing entries and the input field.
 `<leader> e` for toggling the sidebar.
 `<leader> l` for shifting focus between the editor and the sidebar.
 `<leader> k` for showing shortcut help.
