@@ -3,3 +3,4 @@
 - [ ] optimize startup scan for big folder
 - [ ] add pgup/pgdown support
 - [ ] fix editor resize
+- [ ] fix selection-for-copy
