@@ -4,3 +4,4 @@
 - [ ] add pgup/pgdown support
 - [ ] fix editor resize
 - [ ] fix selection-for-copy
+- [ ] optimize exit time of cloud mode when no change was made
