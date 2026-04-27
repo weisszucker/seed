@@ -7,8 +7,33 @@ import { CloudMetadataStore, type CloudMetadata } from "./metadata"
 import type { PushRetryCoordinator } from "./push-retry"
 import { createNoopLogger, type Logger } from "../logging/logger"
 
+function isWorkspaceMutationEffect(effect: AppEffect): boolean {
+  return (
+    effect.type === "SAVE_FILE" ||
+    effect.type === "CREATE_PATH" ||
+    effect.type === "MOVE_PATH" ||
+    effect.type === "DELETE_PATH"
+  )
+}
+
+function didWorkspaceMutationSucceed(effect: AppEffect, events: Awaited<ReturnType<RuntimeEffectRunner>>): boolean {
+  switch (effect.type) {
+    case "SAVE_FILE":
+      return events.some((event) => event.type === "FILE_SAVED")
+    case "CREATE_PATH":
+      return events.some((event) => event.type === "PATH_CREATED")
+    case "MOVE_PATH":
+      return events.some((event) => event.type === "PATH_MOVED")
+    case "DELETE_PATH":
+      return events.some((event) => event.type === "PATH_DELETED")
+    default:
+      return false
+  }
+}
+
 export class CloudLifecycleManager {
   private readonly metadataStore: CloudMetadataStore
+  private hasWorkspaceMutations = false
 
   constructor(
     private readonly repo: RepoContext,
@@ -34,6 +59,11 @@ export class CloudLifecycleManager {
   async handleNormalExit(): Promise<void> {
     this.logger.info("exit_sync_start")
 
+    if (!this.hasWorkspaceMutations) {
+      this.logger.info("exit_sync_skipped_no_session_changes")
+      return
+    }
+
     const commit = await this.commitService.commitIfChanged(this.repo.localPath)
     if (!commit.committed) {
       this.logger.info("exit_sync_no_changes")
@@ -53,6 +83,11 @@ export class CloudLifecycleManager {
     console.info("Exit sync failed; local changes discarded")
     this.logger.warn("exit_sync_discarded", { retry_count: push.retryCount })
     await this.saveMetadata("discarded", push.retryCount)
+  }
+
+  markWorkspaceMutated(): void {
+    this.hasWorkspaceMutations = true
+    this.logger.info("workspace_mutation_recorded")
   }
 
   handleExitFailure(error: unknown): void {
@@ -77,7 +112,11 @@ export class CloudLifecycleManager {
 export function createCloudEffectRunner(lifecycle: CloudLifecycleManager): RuntimeEffectRunner {
   return async (effect, renderer) => {
     if (effect.type !== "EXIT_APP") {
-      return runEffect(effect, renderer)
+      const events = await runEffect(effect, renderer)
+      if (isWorkspaceMutationEffect(effect) && didWorkspaceMutationSucceed(effect, events)) {
+        lifecycle.markWorkspaceMutated()
+      }
+      return events
     }
 
     renderer.destroy()

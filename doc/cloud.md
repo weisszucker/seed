@@ -91,10 +91,13 @@ After startup sync, Seed launches with its working directory set to the cloud re
 Normal exit flow:
 
 1. Destroy the renderer.
-2. Check `git status --porcelain`.
-3. If the worktree is clean, write metadata with status `no_changes`.
-4. If there are changes, stage everything and create a commit whose message is the current UTC timestamp without milliseconds, for example `2026-02-26T18:05:12Z`.
-5. Try `git push origin main`.
+2. If the session did not successfully perform a cloud workspace mutation, skip exit sync without running Git.
+3. If the session did perform a cloud workspace mutation, check `git status --porcelain -- . :(exclude).seed-cloud.json`.
+4. If the worktree is clean after excluding cloud metadata, write metadata with status `no_changes`.
+5. If there are changes, stage everything except `.seed-cloud.json` and create a commit whose message is the current UTC timestamp without milliseconds, for example `2026-02-26T18:05:12Z`.
+6. Try `git push origin main`.
+
+Workspace mutations tracked for exit sync are successful file saves and file-tree create, move, or delete operations. Developer todo-list saves are not tracked as cloud workspace mutations. `.seed-cloud.json` is treated as local cloud metadata, so metadata writes do not create exit commits or make an otherwise unchanged session slow to exit.
 
 If the first push fails:
 
@@ -126,6 +129,8 @@ Current `last_sync_status` values produced by the runtime are:
 - `no_changes`
 - `pushed`
 - `discarded`
+
+When exit sync is skipped because no tracked workspace mutation occurred during the session, the runtime does not update the metadata status to `no_changes`; the previous metadata status, usually `startup_synced`, remains in place.
 
 ## Implementation
 

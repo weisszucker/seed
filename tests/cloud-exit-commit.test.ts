@@ -39,7 +39,7 @@ describe("exit commit service", () => {
     const result = await service.commitIfChanged("/tmp/repo")
 
     expect(result).toEqual({ committed: false })
-    expect(runner.calls).toEqual(["git -C /tmp/repo status --porcelain"])
+    expect(runner.calls).toEqual(["git -C /tmp/repo status --porcelain -- . :(exclude).seed-cloud.json"])
   })
 
   test("commits with UTC timestamp when changes exist", async () => {
@@ -53,7 +53,7 @@ describe("exit commit service", () => {
       committed: true,
       message: "2026-02-26T18:05:12Z",
     })
-    expect(runner.calls).toContain("git -C /tmp/repo add -A")
+    expect(runner.calls).toContain("git -C /tmp/repo add -A -- . :(exclude).seed-cloud.json")
     expect(runner.calls).toContain("git -C /tmp/repo commit -m 2026-02-26T18:05:12Z")
   })
 })
