@@ -37,6 +37,14 @@ export function press(key: string): string {
     return "\x7f"
   }
 
+  if (normalized === "pageup" || normalized === "page up") {
+    return "\x1b[5~"
+  }
+
+  if (normalized === "pagedown" || normalized === "page down") {
+    return "\x1b[6~"
+  }
+
   if (normalized in ARROW_SEQUENCES) {
     return ARROW_SEQUENCES[normalized as keyof typeof ARROW_SEQUENCES]
   }
@@ -55,4 +63,3 @@ export function press(key: string): string {
 export function typeText(text: string): string {
   return text
 }
-

@@ -8,6 +8,7 @@ import { createEditorSyntaxStyle } from "../src/ui/editorHighlighting"
 import { uiLayout } from "../src/theme"
 import { EditorPane } from "../src/ui/components/EditorPane"
 import { getEditorScrollbarMetrics } from "../src/ui/components/editorScrollbar"
+import { pageEditorTextarea } from "../src/ui/editorPaging"
 
 describe("editor scrollbar", () => {
   test("hides the scrollbar when the editor content does not overflow", () => {
@@ -96,6 +97,67 @@ describe("editor scrollbar", () => {
       await setup.renderOnce()
 
       expect(setup.captureCharFrame()).not.toContain("█")
+    } finally {
+      syntaxStyle.destroy()
+      await act(async () => {
+        setup.renderer.destroy()
+      })
+    }
+  })
+
+  test("pages the editor by one viewport", async () => {
+    const textareaRef: { current: TextareaRenderable | null } = { current: null }
+    const syntaxStyle = createEditorSyntaxStyle()
+    const treeSitterClient = {
+      async highlightOnce() {
+        return { highlights: [] }
+      },
+    }
+    const text = Array.from({ length: 60 }, (_, index) => `line ${String(index + 1).padStart(2, "0")}`).join("\n")
+
+    const setup = await testRender(
+      createElement(
+        "box",
+        { width: 80, height: 20 },
+        createElement(EditorPane, {
+          sidebarVisible: false,
+          title: "note.md",
+          documentPath: "/tmp/note.md",
+          text,
+          textareaRef,
+          treeSitterClient,
+          syntaxStyle,
+          focused: true,
+          canRequestFocus: true,
+          onRequestFocus: () => {},
+          onTextChanged: () => {},
+        }),
+      ),
+      { width: 80, height: 20 },
+    )
+
+    try {
+      await setup.renderOnce()
+      const textarea = textareaRef.current
+      expect(textarea).not.toBeNull()
+
+      const initialLine = textarea?.logicalCursor.row ?? 0
+      const expectedPageSize = Math.max(1, (textarea?.height ?? 1) - 1)
+
+      act(() => {
+        pageEditorTextarea(textarea as TextareaRenderable, "down")
+      })
+      await setup.renderOnce()
+
+      expect(textarea?.logicalCursor.row).toBe(initialLine + expectedPageSize)
+      expect(textarea?.scrollY).toBeGreaterThan(0)
+
+      act(() => {
+        pageEditorTextarea(textarea as TextareaRenderable, "up")
+      })
+      await setup.renderOnce()
+
+      expect(textarea?.logicalCursor.row).toBe(initialLine)
     } finally {
       syntaxStyle.destroy()
       await act(async () => {

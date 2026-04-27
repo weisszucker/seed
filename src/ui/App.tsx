@@ -24,6 +24,7 @@ import { StatusBar } from "./components/StatusBar"
 import { UnsavedChangesModal } from "./components/UnsavedChangesModal"
 import {
   formatKeybinding,
+  getEditorPageDirection,
   matchesEditableUndoShortcut,
   resolveLeaderKeyEvent,
   shouldInsertEditorTab,
@@ -31,6 +32,7 @@ import {
 } from "./keybindings"
 import { getContentMaxWidth, uiColors, uiLayout } from "../theme"
 import { createEditorHighlightClient, createEditorSyntaxStyle } from "./editorHighlighting"
+import { pageEditorTextarea } from "./editorPaging"
 
 const LEADER_TIMEOUT_MS = 1500
 function formatTitle(path: string | null): string {
@@ -477,6 +479,18 @@ export function App({ cwd = process.cwd(), effectRunner, e2eHookSink = null }: A
       key.preventDefault()
       key.stopPropagation()
       textareaRef.current?.insertText("\t")
+      return
+    }
+
+    const editorPageDirection = getEditorPageDirection(currentState, leaderPendingRef.current, key)
+    if (editorPageDirection) {
+      key.preventDefault()
+      key.stopPropagation()
+      const textarea = textareaRef.current
+      if (textarea) {
+        pageEditorTextarea(textarea, editorPageDirection)
+      }
+      clearLeaderPending()
       return
     }
 

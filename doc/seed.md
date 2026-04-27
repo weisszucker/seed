@@ -16,6 +16,8 @@ In the editor, it shows the name of the file, and its content.
 
 It should support simple markdown syntax highlight.
 
+When the editor is focused, `PageUp` and `PageDown` move through the document by one editor viewport.
+
 The editor shows a scrollbar only when content overflows the viewport and while the user is actively scrolling or has just scrolled. The scrollbar should use its own reserved gutter so it does not overlap editor text, and it should use the same color as normal editor text.
 
 ## Sidebar

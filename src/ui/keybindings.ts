@@ -141,3 +141,34 @@ export function shouldInsertEditorTab(
     !keyEvent.shift
   )
 }
+
+export type EditorPageDirection = "up" | "down"
+
+export function getEditorPageDirection(
+  state: Pick<EditorState, "focusedPane" | "modal">,
+  leaderPending: boolean,
+  keyEvent: KeyEvent,
+): EditorPageDirection | null {
+  if (
+    state.focusedPane !== "editor" ||
+    state.modal !== null ||
+    leaderPending ||
+    keyEvent.ctrl ||
+    keyEvent.meta ||
+    keyEvent.super ||
+    keyEvent.option ||
+    keyEvent.shift
+  ) {
+    return null
+  }
+
+  if (keyEvent.name === "pageup") {
+    return "up"
+  }
+
+  if (keyEvent.name === "pagedown") {
+    return "down"
+  }
+
+  return null
+}

@@ -110,6 +110,34 @@ describe("keyboard e2e", () => {
       })
     }, 20000)
 
+    test(`pages the focused editor with PageDown and PageUp in ${term}`, async () => {
+      await withLatestSessionDiagnostics(sessionStack, async () => {
+        const longText = Array.from({ length: 80 }, (_, index) => `line ${String(index + 1).padStart(2, "0")}`).join("\n")
+        const session = await startSession(term, {
+          "long.md": longText,
+        })
+
+        await session.waitForOutput((screen) => findText(screen, "long.md"), 10000)
+
+        await session.write(press("ctrl+l"))
+        await session.write(press("l"))
+        await session.write(press("enter"))
+        await session.waitForOutput((screen) => findText(screen, "line 01"), 10000)
+
+        await session.write(press("pagedown"))
+        await session.waitForOutput((screen) => findText(screen, "line 39"), 10000)
+        expect(findText(session.getScreen(), "line 39")).toBeTrue()
+
+        await session.write(press("pageup"))
+        await session.waitForOutput((screen) => findText(screen, "line 01"), 10000)
+        expect(findText(session.getScreen(), "line 01")).toBeTrue()
+
+        await session.write(press("ctrl+l"))
+        await session.write(press("q"))
+        await session.waitForHook((event) => event.type === "app_exit", 10000)
+      })
+    }, 20000)
+
     test(`routes vim-style navigation keys to the sidebar when it is focused in ${term}`, async () => {
       await withLatestSessionDiagnostics(sessionStack, async () => {
         const session = await startSession(term, {

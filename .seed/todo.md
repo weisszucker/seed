@@ -1,7 +1,7 @@
 - [x] review guideline.md
 - [x] add scrollbar
+- [x] add pgup/pgdown support
 - [ ] optimize startup scan for big folder
-- [ ] add pgup/pgdown support
 - [ ] fix editor resize
 - [ ] fix selection-for-copy
 - [ ] optimize exit time of cloud mode when no change was made

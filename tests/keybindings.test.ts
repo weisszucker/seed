@@ -4,6 +4,7 @@ import { DEFAULT_KEYBINDINGS, DEFAULT_LEADER_KEY } from "../src/core/types"
 import {
   commandFromKeyEvent,
   EDITOR_TEXTAREA_KEYBINDINGS,
+  getEditorPageDirection,
   matchesEditableUndoShortcut,
   resolveLeaderKeyEvent,
   shouldInsertEditorTab,
@@ -223,6 +224,65 @@ describe("keybinding matching", () => {
     )
 
     expect(shouldInsert).toBe(false)
+  })
+
+  test("page keys move the editor only when editor input is active", () => {
+    const editorState = {
+      focusedPane: "editor" as const,
+      modal: null,
+    }
+
+    expect(
+      getEditorPageDirection(editorState, false, {
+        name: "pageup",
+        ctrl: false,
+        shift: false,
+        meta: false,
+      } as never),
+    ).toBe("up")
+
+    expect(
+      getEditorPageDirection(editorState, false, {
+        name: "pagedown",
+        ctrl: false,
+        shift: false,
+        meta: false,
+      } as never),
+    ).toBe("down")
+
+    expect(
+      getEditorPageDirection(
+        {
+          focusedPane: "sidebar",
+          modal: null,
+        },
+        false,
+        {
+          name: "pagedown",
+          ctrl: false,
+          shift: false,
+          meta: false,
+        } as never,
+      ),
+    ).toBeNull()
+
+    expect(
+      getEditorPageDirection(editorState, true, {
+        name: "pagedown",
+        ctrl: false,
+        shift: false,
+        meta: false,
+      } as never),
+    ).toBeNull()
+
+    expect(
+      getEditorPageDirection(editorState, false, {
+        name: "pagedown",
+        ctrl: false,
+        shift: true,
+        meta: false,
+      } as never),
+    ).toBeNull()
   })
 
   test("matches cmd+z on macOS when command is reported as super", () => {
