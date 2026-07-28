@@ -10,6 +10,15 @@ Selecting visible text with the mouse should copy it to the local clipboard on s
 
 Most operations should support keyboard, if it's not bound to the mouse.
 
+## Global setup
+
+From the repository root, install dependencies and link the `seed` command globally:
+
+- macOS or Linux: `./scripts/setup-global.sh`
+- Windows PowerShell: `.\scripts\setup-global.ps1`
+
+Both scripts use Bun by default. Pass `npm` as the first argument to use npm instead, for example `.\scripts\setup-global.ps1 npm`.
+
 ## Editor
 
 In the editor, it shows the name of the file, and its content.

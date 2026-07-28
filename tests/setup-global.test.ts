@@ -84,3 +84,19 @@ fi
     }
   })
 })
+
+describe("setup-global.ps1", () => {
+  test("provides the equivalent Windows setup flow", async () => {
+    const repoRoot = resolve(import.meta.dir, "..")
+    const script = await readFile(join(repoRoot, "scripts/setup-global.ps1"), "utf8")
+
+    expect(script).toContain('[string]$PackageManager = "bun"')
+    expect(script).toContain('$PackageManager -ne "bun" -and $PackageManager -ne "npm"')
+    expect(script).toContain('New-Object System.Text.UTF8Encoding($false)')
+    expect(script).toContain('#!/usr/bin/env bun`n`nimport `"../src/main.ts`"`n')
+    expect(script).toContain('Invoke-PackageManager -Executable $PackageManager -CommandArgs @("install")')
+    expect(script).toContain('Invoke-PackageManager -Executable $PackageManager -CommandArgs @("link")')
+    expect(script).toContain("$GlobalBin = (& bun pm bin -g | Out-String).Trim()")
+    expect(script).toContain("Add npm's global bin directory to PATH: $GlobalBin")
+  })
+})
